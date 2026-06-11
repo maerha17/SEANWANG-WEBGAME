@@ -104,11 +104,30 @@
       display: block;
     }
 
+    .media.sudoku {
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background:
+        radial-gradient(circle at 50% 40%, rgba(23, 107, 135, 0.12), transparent 56%),
+        linear-gradient(135deg, #fffaf0 0%, #efe4d0 100%);
+    }
+
+    .media.sudoku img {
+      width: min(76%, 260px);
+      height: auto;
+      max-height: 190px;
+      border-radius: 8px;
+      object-fit: contain;
+      box-shadow: 0 14px 34px rgba(23, 33, 43, 0.16);
+    }
+
     .media.sudoku::after {
       position: absolute;
       inset: 0;
       content: "";
-      background: linear-gradient(180deg, rgba(23, 33, 43, 0) 40%, rgba(23, 33, 43, 0.34));
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(255, 250, 240, 0) 58%, rgba(23, 33, 43, 0.12));
     }
 
     .preview-2048 {
