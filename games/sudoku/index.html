@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数独</title>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --ink: #1f2933;
+      --muted: #74716a;
+      --line: #b8b6ad;
+      --heavy: #1d252c;
+      --blue: #176b87;
+      --blue-soft: #cfe8ef;
+      --related: #edf6f8;
+      --same: #d7ece4;
+      --given: #f3efe5;
+      --panel: #fffdf8;
+      --button: #ebe5d8;
+      --danger: #b42318;
+      --danger-bg: #fde8e7;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      width: min(100vw, 560px);
+      min-height: 100vh;
+      padding: 18px 16px 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+
+    .top {
+      display: grid;
+      grid-template-columns: 1fr minmax(120px, auto) 1fr;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .metric {
+      min-width: 0;
+    }
+
+    .metric:last-child {
+      text-align: right;
+    }
+
+    .metric-label {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 18px;
+    }
+
+    .metric-value {
+      display: block;
+      font-size: 28px;
+      font-weight: 760;
+      line-height: 34px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 34px;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .difficulty {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    button {
+      min-width: 0;
+      border: 0;
+      border-radius: 6px;
+      color: #26313d;
+      background: var(--button);
+      font: inherit;
+      cursor: pointer;
+      user-select: none;
+      touch-action: manipulation;
+    }
+
+    button:focus-visible,
+    .cell:focus-visible {
+      outline: 3px solid rgba(23, 107, 135, 0.35);
+      outline-offset: 2px;
+    }
+
+    button.active {
+      color: #fff;
+      background: var(--blue);
+    }
+
+    .difficulty button,
+    .tools button {
+      height: 40px;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      width: min(calc(100vw - 32px), 528px);
+      aspect-ratio: 1;
+      margin: 0 auto 16px;
+      border: 3px solid var(--heavy);
+      background: #fff;
+    }
+
+    .cell {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--blue);
+      font-size: clamp(20px, 7vw, 38px);
+      font-weight: 720;
+      line-height: 1;
+      cursor: pointer;
+      user-select: none;
+      aspect-ratio: 1;
+    }
+
+    .cell:nth-child(3n) {
+      border-right-width: 3px;
+      border-right-color: var(--heavy);
+    }
+
+    .cell:nth-child(9n) {
+      border-right: 0;
+    }
+
+    .cell:nth-child(n + 19):nth-child(-n + 27),
+    .cell:nth-child(n + 46):nth-child(-n + 54) {
+      border-bottom-width: 3px;
+      border-bottom-color: var(--heavy);
+    }
+
+    .cell:nth-child(n + 73) {
+      border-bottom: 0;
+    }
+
+    .cell.given {
+      color: #18212a;
+      background: var(--given);
+    }
+
+    .cell.related {
+      background: var(--related);
+    }
+
+    .cell.same {
+      background: var(--same);
+    }
+
+    .cell.selected {
+      background: var(--blue-soft);
+    }
+
+    .cell.error {
+      color: var(--danger);
+      background: var(--danger-bg);
+    }
+
+    .notes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      grid-template-rows: repeat(3, 1fr);
+      width: 100%;
+      height: 100%;
+      padding: 6%;
+    }
+
+    .note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: transparent;
+      font-size: clamp(8px, 2.5vw, 14px);
+      font-weight: 560;
+      line-height: 1;
+    }
+
+    .note.visible {
+      color: #6c757d;
+    }
+
+    .numbers {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .numbers button:nth-child(n + 6) {
+      transform: translateX(calc(50% + 3px));
+    }
+
+    .numbers button {
+      height: 48px;
+      color: var(--blue);
+      background: #fff;
+      font-size: clamp(18px, 5vw, 28px);
+      font-weight: 760;
+    }
+
+    .tools {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+    }
+
+    .modal-backdrop,
+    .complete-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(31, 41, 51, 0.58);
+    }
+
+    .modal-backdrop.show,
+    .complete-backdrop.show {
+      display: flex;
+    }
+
+    .dialog {
+      width: min(100%, 340px);
+      border-radius: 8px;
+      padding: 22px 20px 18px;
+      background: #fffdf8;
+      text-align: center;
+      box-shadow: 0 16px 48px rgba(31, 41, 51, 0.18);
+    }
+
+    .dialog h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      line-height: 28px;
+    }
+
+    .dialog p {
+      margin: 0 0 18px;
+      color: #52616b;
+      font-size: 15px;
+      line-height: 23px;
+    }
+
+    .dialog-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .dialog-actions button,
+    .complete-action {
+      height: 42px;
+      font-weight: 700;
+    }
+
+    .danger {
+      color: #fff;
+      background: var(--danger);
+    }
+
+    .danger:disabled {
+      background: #c8ced5;
+      cursor: default;
+    }
+
+    .complete-card {
+      width: min(100%, 380px);
+      border-radius: 8px;
+      padding: 28px 24px 22px;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 16px 48px rgba(31, 41, 51, 0.2);
+    }
+
+    .complete-card h2 {
+      margin: 0 0 12px;
+      font-size: 28px;
+    }
+
+    .complete-card p {
+      margin: 0 0 12px;
+      color: #52616b;
+    }
+
+    .praise {
+      margin: 0 0 8px;
+      color: var(--blue);
+      font-size: 15px;
+      font-weight: 760;
+    }
+
+    .complete-action {
+      width: min(100%, 188px);
+      margin-top: 14px;
+      color: #fff;
+      background: var(--blue);
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      max-width: min(420px, calc(100vw - 32px));
+      padding: 12px 16px;
+      border-radius: 6px;
+      color: #fff;
+      background: rgba(31, 41, 51, 0.94);
+      font-size: 15px;
+      line-height: 22px;
+      transform: translateX(-50%) translateY(80px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 380px) {
+      .app {
+        padding-inline: 10px;
+      }
+
+      .board {
+        width: calc(100vw - 20px);
+      }
+
+      .numbers {
+        gap: 4px;
+      }
+
+      .numbers button:nth-child(n + 6) {
+        transform: translateX(calc(50% + 2px));
+      }
+
+      .numbers button {
+        height: 42px;
+      }
+
+      .tools {
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="top" aria-label="状态">
+      <div class="metric">
+        <span class="metric-label">时间</span>
+        <span class="metric-value" id="time">00:00</span>
+      </div>
+      <div class="brand">
+        <img src="assets/logo.png" alt="">
+        <h1>老王肖恩数独</h1>
+      </div>
+      <div class="metric">
+        <span class="metric-label">错误</span>
+        <span class="metric-value" id="mistakes">0</span>
+      </div>
+    </section>
+
+    <section class="difficulty" aria-label="难度">
+      <button type="button" data-difficulty="easy">简单</button>
+      <button type="button" data-difficulty="medium">中等</button>
+      <button type="button" data-difficulty="hard">困难</button>
+      <button type="button" data-difficulty="hell">地狱</button>
+    </section>
+
+    <section class="board" id="board" aria-label="数独棋盘"></section>
+
+    <section class="numbers" aria-label="数字键盘">
+      <button type="button" data-number="1">1</button>
+      <button type="button" data-number="2">2</button>
+      <button type="button" data-number="3">3</button>
+      <button type="button" data-number="4">4</button>
+      <button type="button" data-number="5">5</button>
+      <button type="button" data-number="6">6</button>
+      <button type="button" data-number="7">7</button>
+      <button type="button" data-number="8">8</button>
+      <button type="button" data-number="9">9</button>
+    </section>
+
+    <section class="tools" aria-label="工具">
+      <button type="button" id="notes">笔记</button>
+      <button type="button" id="erase">擦除</button>
+      <button type="button" id="hint">提示5</button>
+      <button type="button" id="quickNotes">便捷笔记</button>
+      <button type="button" id="new">新局</button>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="modal-backdrop" id="modal">
+    <section class="dialog">
+      <h2 id="modalTitle"></h2>
+      <p id="modalMessage"></p>
+      <div class="dialog-actions">
+        <button type="button" id="modalCancel">取消</button>
+        <button type="button" class="danger" id="modalConfirm">确认</button>
+      </div>
+    </section>
+  </div>
+  <div class="complete-backdrop" id="complete">
+    <section class="complete-card">
+      <h2>完成</h2>
+      <p id="completeStats"></p>
+      <div id="completePraise"></div>
+      <button type="button" class="complete-action" id="completeNew">再来一局</button>
+    </section>
+  </div>
+
+  <script>
+    const SIZE = 9
+    const BOX = 3
+    const STORAGE_KEY = 'sudoku.web.current.v1'
+    const DIFFICULTY_EMPTY_CELLS = {
+      easy: 36,
+      medium: 46,
+      hard: 54,
+      hell: 60
+    }
+
+    const state = {
+      puzzle: [],
+      solution: [],
+      userGrid: [],
+      notes: createNotes(),
+      selected: null,
+      difficulty: 'easy',
+      notesMode: false,
+      hintsLeft: 5,
+      hintsUsed: 0,
+      quickNotesUsed: false,
+      quickNotesUseCount: 0,
+      emptyHintTaps: 0,
+      bonusHintGranted: false,
+      errorTaunted: false,
+      needyTaunted: false,
+      mistakes: 0,
+      elapsedSeconds: 0,
+      startedAt: Date.now(),
+      history: [],
+      completed: false,
+      modal: null
+    }
+
+    const boardElement = document.querySelector('#board')
+    const timeElement = document.querySelector('#time')
+    const mistakesElement = document.querySelector('#mistakes')
+    const notesButton = document.querySelector('#notes')
+    const hintButton = document.querySelector('#hint')
+    const modalElement = document.querySelector('#modal')
+    const modalTitleElement = document.querySelector('#modalTitle')
+    const modalMessageElement = document.querySelector('#modalMessage')
+    const modalCancelButton = document.querySelector('#modalCancel')
+    const modalConfirmButton = document.querySelector('#modalConfirm')
+    const completeElement = document.querySelector('#complete')
+    const completeStatsElement = document.querySelector('#completeStats')
+    const completePraiseElement = document.querySelector('#completePraise')
+    const toastElement = document.querySelector('#toast')
+    let toastTimer = null
+
+    function createEmptyGrid() {
+      return Array.from({ length: SIZE }, () => Array(SIZE).fill(0))
+    }
+
+    function cloneGrid(grid) {
+      return grid.map((row) => row.slice())
+    }
+
+    function createNotes() {
+      return Array.from({ length: SIZE }, () => Array.from({ length: SIZE }, () => []))
+    }
+
+    function cloneNotes(notes) {
+      return notes.map((row) => row.map((cell) => cell.slice()))
+    }
+
+    function shuffle(values) {
+      const result = values.slice()
+      for (let i = result.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1))
+        const temp = result[i]
+        result[i] = result[j]
+        result[j] = temp
+      }
+      return result
+    }
+
+    function canPlace(grid, row, col, value) {
+      for (let i = 0; i < SIZE; i += 1) {
+        if (grid[row][i] === value || grid[i][col] === value) {
+          return false
+        }
+      }
+
+      const startRow = Math.floor(row / BOX) * BOX
+      const startCol = Math.floor(col / BOX) * BOX
+      for (let r = startRow; r < startRow + BOX; r += 1) {
+        for (let c = startCol; c < startCol + BOX; c += 1) {
+          if (grid[r][c] === value) {
+            return false
+          }
+        }
+      }
+
+      return true
+    }
+
+    function findBestEmptyCell(grid) {
+      let best = null
+      let bestCandidates = null
+
+      for (let row = 0; row < SIZE; row += 1) {
+        for (let col = 0; col < SIZE; col += 1) {
+          if (grid[row][col] !== 0) {
+            continue
+          }
+
+          const candidates = []
+          for (let value = 1; value <= SIZE; value += 1) {
+            if (canPlace(grid, row, col, value)) {
+              candidates.push(value)
+            }
+          }
+
+          if (candidates.length === 0) {
+            return { row, col, candidates }
+          }
+
+          if (!best || candidates.length < bestCandidates.length) {
+            best = { row, col }
+            bestCandidates = candidates
+          }
+        }
+      }
+
+      if (!best) {
+        return null
+      }
+
+      return {
+        row: best.row,
+        col: best.col,
+        candidates: bestCandidates
+      }
+    }
+
+    function fillGrid(grid) {
+      const cell = findBestEmptyCell(grid)
+      if (!cell) {
+        return true
+      }
+
+      const numbers = shuffle(cell.candidates)
+      for (let i = 0; i < numbers.length; i += 1) {
+        const value = numbers[i]
+        grid[cell.row][cell.col] = value
+        if (fillGrid(grid)) {
+          return true
+        }
+        grid[cell.row][cell.col] = 0
+      }
+
+      return false
+    }
+
+    function countSolutions(grid, limit) {
+      const cell = findBestEmptyCell(grid)
+      if (!cell) {
+        return 1
+      }
+
+      let count = 0
+      for (let i = 0; i < cell.candidates.length; i += 1) {
+        const value = cell.candidates[i]
+        grid[cell.row][cell.col] = value
+        count += countSolutions(grid, limit)
+        grid[cell.row][cell.col] = 0
+
+        if (count >= limit) {
+          return count
+        }
+      }
+
+      return count
+    }
+
+    function generateSolvedGrid() {
+      const grid = createEmptyGrid()
+      fillGrid(grid)
+      return grid
+    }
+
+    function generatePuzzle(difficulty) {
+      const solution = generateSolvedGrid()
+      const puzzle = cloneGrid(solution)
+      const targetEmpty = DIFFICULTY_EMPTY_CELLS[difficulty] || DIFFICULTY_EMPTY_CELLS.easy
+      const cells = shuffle(
+        Array.from({ length: SIZE * SIZE }, (_, index) => ({
+          row: Math.floor(index / SIZE),
+          col: index % SIZE
+        }))
+      )
+
+      let removed = 0
+      for (let i = 0; i < cells.length && removed < targetEmpty; i += 1) {
+        const { row, col } = cells[i]
+        const original = puzzle[row][col]
+        puzzle[row][col] = 0
+
+        const candidate = cloneGrid(puzzle)
+        if (countSolutions(candidate, 2) === 1) {
+          removed += 1
+        } else {
+          puzzle[row][col] = original
+        }
+      }
+
+      return { puzzle, solution }
+    }
+
+    function isComplete(grid, solution) {
+      for (let row = 0; row < SIZE; row += 1) {
+        for (let col = 0; col < SIZE; col += 1) {
+          if (grid[row][col] !== solution[row][col]) {
+            return false
+          }
+        }
+      }
+      return true
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60)
+      const rest = seconds % 60
+      return `${String(minutes).padStart(2, '0')}:${String(rest).padStart(2, '0')}`
+    }
+
+    function showToast(message) {
+      toastElement.textContent = message
+      toastElement.classList.add('show')
+      clearTimeout(toastTimer)
+      toastTimer = setTimeout(() => {
+        toastElement.classList.remove('show')
+      }, 2200)
+    }
+
+    function pushHistory() {
+      state.history = state.history.slice(-80)
+      state.history.push({
+        userGrid: cloneGrid(state.userGrid),
+        notes: cloneNotes(state.notes),
+        mistakes: state.mistakes
+      })
+    }
+
+    function saveGame() {
+      if (state.completed) {
+        localStorage.removeItem(STORAGE_KEY)
+        return
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        puzzle: state.puzzle,
+        solution: state.solution,
+        userGrid: state.userGrid,
+        notes: state.notes,
+        selected: state.selected,
+        difficulty: state.difficulty,
+        notesMode: state.notesMode,
+        hintsLeft: state.hintsLeft,
+        hintsUsed: state.hintsUsed,
+        quickNotesUsed: state.quickNotesUsed,
+        quickNotesUseCount: state.quickNotesUseCount,
+        emptyHintTaps: state.emptyHintTaps,
+        bonusHintGranted: state.bonusHintGranted,
+        errorTaunted: state.errorTaunted,
+        needyTaunted: state.needyTaunted,
+        mistakes: state.mistakes,
+        elapsedSeconds: state.elapsedSeconds,
+        savedAt: Date.now(),
+        history: state.history
+      }))
+    }
+
+    function loadGame() {
+      try {
+        const saved = JSON.parse(localStorage.getItem(STORAGE_KEY))
+        if (!saved || !saved.puzzle || !saved.solution || !saved.userGrid) {
+          return false
+        }
+
+        Object.assign(state, {
+          puzzle: saved.puzzle,
+          solution: saved.solution,
+          userGrid: saved.userGrid,
+          notes: saved.notes || createNotes(),
+          selected: saved.selected || null,
+          difficulty: saved.difficulty || 'easy',
+          notesMode: Boolean(saved.notesMode),
+          hintsLeft: typeof saved.hintsLeft === 'number' ? saved.hintsLeft : 5,
+          hintsUsed: saved.hintsUsed || 0,
+          quickNotesUsed: Boolean(saved.quickNotesUsed),
+          quickNotesUseCount: saved.quickNotesUseCount || 0,
+          emptyHintTaps: saved.emptyHintTaps || 0,
+          bonusHintGranted: Boolean(saved.bonusHintGranted),
+          errorTaunted: Boolean(saved.errorTaunted),
+          needyTaunted: Boolean(saved.needyTaunted),
+          mistakes: saved.mistakes || 0,
+          elapsedSeconds: saved.elapsedSeconds || 0,
+          startedAt: Date.now() - (saved.elapsedSeconds || 0) * 1000,
+          history: saved.history || [],
+          completed: false
+        })
+        return true
+      } catch (error) {
+        return false
+      }
+    }
+
+    function resetGame(difficulty) {
+      const game = generatePuzzle(difficulty)
+      Object.assign(state, {
+        puzzle: game.puzzle,
+        solution: game.solution,
+        userGrid: cloneGrid(game.puzzle),
+        notes: createNotes(),
+        selected: null,
+        difficulty,
+        notesMode: false,
+        hintsLeft: 5,
+        hintsUsed: 0,
+        quickNotesUsed: false,
+        quickNotesUseCount: 0,
+        emptyHintTaps: 0,
+        bonusHintGranted: false,
+        errorTaunted: false,
+        needyTaunted: false,
+        mistakes: 0,
+        elapsedSeconds: 0,
+        startedAt: Date.now(),
+        history: [],
+        completed: false,
+        modal: null
+      })
+      saveGame()
+      render()
+    }
+
+    function openConfirm(title, message, confirmLabel, onConfirm, cancelLabel) {
+      state.modal = {
+        title,
+        message,
+        confirmLabel,
+        cancelLabel: cancelLabel || '取消',
+        enabledAt: Date.now() + 800,
+        onConfirm
+      }
+      renderModal()
+    }
+
+    function closeConfirm() {
+      state.modal = null
+      renderModal()
+    }
+
+    function renderModal() {
+      const modal = state.modal
+      modalElement.classList.toggle('show', Boolean(modal))
+      if (!modal) {
+        return
+      }
+
+      modalTitleElement.textContent = modal.title
+      modalMessageElement.textContent = modal.message
+      modalCancelButton.textContent = modal.cancelLabel
+      modalConfirmButton.textContent = modal.confirmLabel
+      modalConfirmButton.disabled = Date.now() < modal.enabledAt
+      setTimeout(() => {
+        if (state.modal === modal) {
+          modalConfirmButton.disabled = false
+        }
+      }, Math.max(0, modal.enabledAt - Date.now()))
+    }
+
+    function renderComplete() {
+      completeElement.classList.toggle('show', state.completed)
+      if (!state.completed) {
+        return
+      }
+
+      completeStatsElement.textContent = `用时 ${formatTime(state.elapsedSeconds)}，错误 ${state.mistakes} 次`
+      const praise = []
+      if (state.hintsUsed === 0) {
+        praise.push('靠自己就能完成的小机灵鬼')
+      }
+      if (!state.quickNotesUsed) {
+        praise.push('记忆力超群的天才')
+      }
+      completePraiseElement.innerHTML = ''
+      praise.forEach((message) => {
+        const item = document.createElement('div')
+        item.className = 'praise'
+        item.textContent = message
+        completePraiseElement.appendChild(item)
+      })
+    }
+
+    function render() {
+      boardElement.innerHTML = ''
+      const selected = state.selected
+      const selectedValue = selected ? state.userGrid[selected.row][selected.col] : 0
+
+      for (let row = 0; row < SIZE; row += 1) {
+        for (let col = 0; col < SIZE; col += 1) {
+          const value = state.userGrid[row][col]
+          const given = state.puzzle[row][col] !== 0
+          const sameBox = selected &&
+            Math.floor(selected.row / BOX) === Math.floor(row / BOX) &&
+            Math.floor(selected.col / BOX) === Math.floor(col / BOX)
+          const related = selected && (selected.row === row || selected.col === col || sameBox)
+          const same = selectedValue !== 0 && value === selectedValue
+          const selectedCell = selected && selected.row === row && selected.col === col
+          const error = value !== 0 && value !== state.solution[row][col]
+
+          const cell = document.createElement('button')
+          cell.type = 'button'
+          cell.className = [
+            'cell',
+            given ? 'given' : '',
+            related ? 'related' : '',
+            same ? 'same' : '',
+            selectedCell ? 'selected' : '',
+            error ? 'error' : ''
+          ].filter(Boolean).join(' ')
+          cell.dataset.row = String(row)
+          cell.dataset.col = String(col)
+          cell.setAttribute('aria-label', `第 ${row + 1} 行第 ${col + 1} 列`)
+
+          if (value) {
+            cell.textContent = String(value)
+          } else {
+            const notes = document.createElement('span')
+            notes.className = 'notes'
+            for (let number = 1; number <= SIZE; number += 1) {
+              const note = document.createElement('span')
+              note.className = state.notes[row][col].includes(number) ? 'note visible' : 'note'
+              note.textContent = state.notes[row][col].includes(number) ? String(number) : ''
+              notes.appendChild(note)
+            }
+            cell.appendChild(notes)
+          }
+
+          boardElement.appendChild(cell)
+        }
+      }
+
+      timeElement.textContent = formatTime(state.elapsedSeconds)
+      mistakesElement.textContent = String(state.mistakes)
+      notesButton.classList.toggle('active', state.notesMode)
+      hintButton.textContent = `提示${state.hintsLeft}`
+      document.querySelectorAll('[data-difficulty]').forEach((button) => {
+        button.classList.toggle('active', button.dataset.difficulty === state.difficulty)
+      })
+      renderModal()
+      renderComplete()
+    }
+
+    function selectCell(row, col) {
+      state.selected = { row, col }
+      render()
+    }
+
+    function inputNumber(value) {
+      const selected = state.selected
+      if (!selected || state.completed || state.puzzle[selected.row][selected.col] !== 0) {
+        return
+      }
+
+      const { row, col } = selected
+      if (state.notesMode) {
+        if (state.userGrid[row][col] !== 0) {
+          return
+        }
+
+        pushHistory()
+        const current = state.notes[row][col]
+        const index = current.indexOf(value)
+        if (index === -1) {
+          current.push(value)
+          current.sort()
+        } else {
+          current.splice(index, 1)
+        }
+      } else {
+        pushHistory()
+        state.userGrid[row][col] = value
+        state.notes[row][col] = []
+
+        if (value !== state.solution[row][col]) {
+          state.mistakes += 1
+          if (!state.errorTaunted && state.mistakes > 5) {
+            state.errorTaunted = true
+            showToast('人生苦短，何妨一试？错太多次了我的朋友！', 2600)
+          }
+        }
+      }
+
+      if (!state.notesMode && isComplete(state.userGrid, state.solution)) {
+        state.completed = true
+        saveGame()
+        render()
+        return
+      }
+
+      saveGame()
+      render()
+    }
+
+    function getSelectedEditableCell() {
+      const selected = state.selected
+      if (!selected || state.completed || state.puzzle[selected.row][selected.col] !== 0) {
+        return null
+      }
+      return selected
+    }
+
+    function getCandidates(row, col) {
+      if (state.userGrid[row][col] !== 0) {
+        return []
+      }
+
+      return Array.from({ length: 9 }, (_, index) => index + 1).filter((value) => {
+        for (let i = 0; i < 9; i += 1) {
+          if (state.userGrid[row][i] === value || state.userGrid[i][col] === value) {
+            return false
+          }
+        }
+
+        const startRow = Math.floor(row / 3) * 3
+        const startCol = Math.floor(col / 3) * 3
+        for (let r = startRow; r < startRow + 3; r += 1) {
+          for (let c = startCol; c < startCol + 3; c += 1) {
+            if (state.userGrid[r][c] === value) {
+              return false
+            }
+          }
+        }
+
+        return true
+      })
+    }
+
+    function checkNeedyTaunt() {
+      if (!state.needyTaunted && state.hintsLeft <= 0 && state.quickNotesUseCount >= 5) {
+        state.needyTaunted = true
+        showToast('又提示又要我给你笔记，也不知道这局是你玩还是我玩。。。', 2800)
+        return true
+      }
+      return false
+    }
+
+    function handleEmptyHintTap() {
+      if (state.bonusHintGranted) {
+        showToast('一滴都不剩了')
+        return
+      }
+
+      state.emptyHintTaps += 1
+      if (state.emptyHintTaps >= 20) {
+        openConfirm('还要吗？嗯？还想要？', '点“是”奖励你最后一次提示。', '是', () => {
+          state.hintsLeft += 1
+          state.bonusHintGranted = true
+          showToast('给你最后一次')
+          saveGame()
+          render()
+        }, '不要')
+        return
+      }
+
+      showToast('本局提示已用完')
+    }
+
+    function useHint() {
+      if (state.hintsLeft <= 0) {
+        handleEmptyHintTap()
+        return
+      }
+
+      const selected = getSelectedEditableCell()
+      if (!selected) {
+        showToast('请选择一个可填写格子')
+        return
+      }
+
+      const { row, col } = selected
+      if (state.userGrid[row][col] === state.solution[row][col]) {
+        showToast('该格已是正确答案')
+        return
+      }
+
+      pushHistory()
+      state.userGrid[row][col] = state.solution[row][col]
+      state.notes[row][col] = []
+      state.hintsLeft -= 1
+      state.hintsUsed += 1
+      checkNeedyTaunt()
+
+      if (isComplete(state.userGrid, state.solution)) {
+        state.completed = true
+      }
+
+      saveGame()
+      render()
+    }
+
+    function useQuickNotes() {
+      let singles = 0
+      let pairs = 0
+
+      pushHistory()
+      for (let row = 0; row < 9; row += 1) {
+        for (let col = 0; col < 9; col += 1) {
+          if (state.userGrid[row][col] !== 0) {
+            continue
+          }
+
+          const candidates = getCandidates(row, col)
+          if (candidates.length === 1) {
+            state.notes[row][col] = candidates
+            singles += 1
+          } else if (candidates.length === 2) {
+            state.notes[row][col] = candidates
+            pairs += 1
+          }
+        }
+      }
+
+      if (singles || pairs) {
+        state.quickNotesUsed = true
+        state.quickNotesUseCount += 1
+        if (!checkNeedyTaunt()) {
+          showToast(`已标注 ${singles} 个唯一、${pairs} 个唯二`)
+        }
+      } else {
+        state.history.pop()
+        showToast('暂无唯一或唯二可能')
+      }
+
+      saveGame()
+      render()
+    }
+
+    function eraseCell() {
+      const selected = state.selected
+      if (!selected || state.completed || state.puzzle[selected.row][selected.col] !== 0) {
+        return
+      }
+
+      pushHistory()
+      state.userGrid[selected.row][selected.col] = 0
+      state.notes[selected.row][selected.col] = []
+      saveGame()
+      render()
+    }
+
+    function undo() {
+      const previous = state.history.pop()
+      if (!previous || state.completed) {
+        return
+      }
+
+      state.userGrid = previous.userGrid
+      state.notes = previous.notes
+      state.mistakes = previous.mistakes
+      saveGame()
+      render()
+    }
+
+    boardElement.addEventListener('click', (event) => {
+      const cell = event.target.closest('.cell')
+      if (!cell) {
+        return
+      }
+      selectCell(Number(cell.dataset.row), Number(cell.dataset.col))
+    })
+
+    document.querySelector('.numbers').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-number]')
+      if (button) {
+        inputNumber(Number(button.dataset.number))
+      }
+    })
+
+    document.querySelector('.difficulty').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-difficulty]')
+      if (!button || button.dataset.difficulty === state.difficulty) {
+        return
+      }
+
+      const label = button.textContent
+      openConfirm('切换难度？', `会丢失当前进度，并开始${label}新局。`, '确认切换', () => {
+        resetGame(button.dataset.difficulty)
+      })
+    })
+
+    notesButton.addEventListener('click', () => {
+      state.notesMode = !state.notesMode
+      saveGame()
+      render()
+    })
+
+    document.querySelector('#erase').addEventListener('click', eraseCell)
+    document.querySelector('#hint').addEventListener('click', useHint)
+    document.querySelector('#quickNotes').addEventListener('click', useQuickNotes)
+    document.querySelector('#new').addEventListener('click', () => {
+      openConfirm('开始新局？', '会丢失当前进度，并重新生成本难度题目。', '确认新局', () => {
+        resetGame(state.difficulty)
+      })
+    })
+
+    modalCancelButton.addEventListener('click', closeConfirm)
+    modalConfirmButton.addEventListener('click', () => {
+      const modal = state.modal
+      if (!modal || Date.now() < modal.enabledAt) {
+        return
+      }
+      closeConfirm()
+      modal.onConfirm()
+    })
+    completeElement.addEventListener('click', (event) => {
+      if (event.target === completeElement) {
+        return
+      }
+    })
+    document.querySelector('#completeNew').addEventListener('click', () => {
+      resetGame(state.difficulty)
+    })
+
+    window.addEventListener('keydown', (event) => {
+      if (/^[1-9]$/.test(event.key)) {
+        inputNumber(Number(event.key))
+      } else if (event.key === 'Backspace' || event.key === 'Delete') {
+        eraseCell()
+      } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+        event.preventDefault()
+        undo()
+      } else if (event.key.toLowerCase() === 'h') {
+        useHint()
+      } else if (event.key.toLowerCase() === 'q') {
+        useQuickNotes()
+      } else if (event.key.toLowerCase() === 'n') {
+        state.notesMode = !state.notesMode
+        saveGame()
+        render()
+      }
+    })
+
+    setInterval(() => {
+      if (state.completed) {
+        return
+      }
+
+      state.elapsedSeconds = Math.floor((Date.now() - state.startedAt) / 1000)
+      timeElement.textContent = formatTime(state.elapsedSeconds)
+      saveGame()
+    }, 1000)
+
+    if (!loadGame()) {
+      resetGame('easy')
+    } else {
+      render()
+    }
+  </script>
+</body>
+</html>

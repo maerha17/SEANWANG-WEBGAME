@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sean Wang Web Games</title>
+  <style>
+    :root {
+      --bg: #f4f0e7;
+      --ink: #17212b;
+      --muted: #66717d;
+      --line: #d8d1c2;
+      --panel: #fffaf0;
+      --accent: #176b87;
+      --accent-2: #9b5de5;
+      --tile: #eee4da;
+      --tile-strong: #f2b179;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      display: flex;
+      justify-content: center;
+    }
+
+    .shell {
+      width: min(1120px, 100%);
+      padding: 28px 20px 40px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 64px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    .tagline {
+      max-width: 420px;
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 24px;
+      text-align: right;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+      margin-top: 26px;
+    }
+
+    .game-card {
+      display: grid;
+      grid-template-columns: 44% 1fr;
+      min-height: 280px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: inherit;
+      background: var(--panel);
+      text-decoration: none;
+      box-shadow: 0 12px 34px rgba(23, 33, 43, 0.08);
+      transition: transform 140ms ease, box-shadow 140ms ease;
+    }
+
+    .game-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 18px 44px rgba(23, 33, 43, 0.13);
+    }
+
+    .media {
+      position: relative;
+      min-height: 260px;
+      background: #ede6d8;
+    }
+
+    .media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .media.sudoku::after {
+      position: absolute;
+      inset: 0;
+      content: "";
+      background: linear-gradient(180deg, rgba(23, 33, 43, 0) 40%, rgba(23, 33, 43, 0.34));
+    }
+
+    .preview-2048 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      width: min(86%, 260px);
+      aspect-ratio: 1;
+      margin: 28px auto;
+      padding: 10px;
+      border-radius: 8px;
+      background: #bbada0;
+    }
+
+    .preview-2048 span {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      background: rgba(238, 228, 218, 0.35);
+      color: #776e65;
+      font-size: clamp(18px, 3vw, 28px);
+      font-weight: 800;
+    }
+
+    .preview-2048 .t2 { background: #eee4da; }
+    .preview-2048 .t4 { background: #ede0c8; }
+    .preview-2048 .t8 { color: #fff; background: #f2b179; }
+    .preview-2048 .t16 { color: #fff; background: #f59563; }
+    .preview-2048 .t32 { color: #fff; background: #f67c5f; }
+    .preview-2048 .t64 { color: #fff; background: #f65e3b; }
+    .preview-2048 .t128 { color: #fff; background: #edcf72; font-size: clamp(16px, 2.4vw, 24px); }
+
+    .content {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 32px;
+      line-height: 38px;
+      letter-spacing: 0;
+    }
+
+    .content p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 24px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .meta span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #39434d;
+      background: #fff;
+      font-size: 13px;
+      line-height: 16px;
+      white-space: nowrap;
+    }
+
+    .play {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      min-width: 108px;
+      height: 40px;
+      border-radius: 6px;
+      color: #fff;
+      background: var(--accent);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .game-card:nth-child(2) .play {
+      background: #8b5a2b;
+    }
+
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 20px;
+    }
+
+    @media (max-width: 800px) {
+      header {
+        display: block;
+      }
+
+      .tagline {
+        margin-top: 12px;
+        text-align: left;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .shell {
+        padding: 20px 14px 30px;
+      }
+
+      .game-card {
+        grid-template-columns: 1fr;
+      }
+
+      .media {
+        min-height: 210px;
+      }
+
+      .content {
+        padding: 20px;
+      }
+
+      h2 {
+        font-size: 28px;
+        line-height: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header>
+      <h1>SEANWANG<br>WEBGAME</h1>
+      <p class="tagline">一个轻量网页小游戏合集。打开就玩，手机和电脑都可以。</p>
+    </header>
+
+    <section class="grid" aria-label="游戏列表">
+      <a class="game-card" href="games/sudoku/">
+        <div class="media sudoku">
+          <img src="games/sudoku/assets/promo/promo-sudoku-01.jpg" alt="数独游戏预览">
+        </div>
+        <div class="content">
+          <div>
+            <h2>老王肖恩数独</h2>
+            <p>四档难度、提示、便捷笔记、本地存档。适合慢慢推理，也适合碎片时间来一局。</p>
+          </div>
+          <div class="meta">
+            <span>数独</span>
+            <span>逻辑推理</span>
+            <span>本地存档</span>
+          </div>
+          <span class="play">开始游戏</span>
+        </div>
+      </a>
+
+      <a class="game-card" href="games/2048/">
+        <div class="media">
+          <div class="preview-2048" aria-hidden="true">
+            <span class="t2">2</span>
+            <span></span>
+            <span class="t4">4</span>
+            <span></span>
+            <span></span>
+            <span class="t8">8</span>
+            <span></span>
+            <span class="t16">16</span>
+            <span class="t32">32</span>
+            <span></span>
+            <span class="t64">64</span>
+            <span></span>
+            <span></span>
+            <span class="t128">128</span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <div class="content">
+          <div>
+            <h2>2048</h2>
+            <p>上下左右滑动合并数字，冲到 2048。支持键盘、手机滑动、分数记录和继续游戏。</p>
+          </div>
+          <div class="meta">
+            <span>2048</span>
+            <span>滑块合成</span>
+            <span>最高分</span>
+          </div>
+          <span class="play">开始游戏</span>
+        </div>
+      </a>
+    </section>
+
+    <footer>Made for quick little breaks.</footer>
+  </main>
+</body>
+</html>
