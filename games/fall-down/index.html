@@ -148,26 +148,124 @@
     }
 
     function targetBounds(target) {
+      const pose = targetPose(target)
+      const w = 44 * pose.scale
+      const h = 58 * pose.scale
+      return {
+        x: pose.x - w / 2,
+        y: pose.baseY - h,
+        w,
+        h,
+        pose
+      }
+    }
+
+    function beltMetrics(row) {
       const m = layout()
       const stageX = m.x + 18
       const stageW = m.w - 36
-      const beltX = stageX + 12 * m.scale
-      const beltW = stageW - 24 * m.scale
-      const spacing = beltW / 3
-      const loopW = spacing * 4
-      const direction = target.row === 0 ? -1 : 1
-      const base = target.slot * spacing
-      const travel = (base + state.beltOffset * direction) % loopW
-      const wrapped = travel < 0 ? travel + loopW : travel
-      const rowY = target.row === 0 ? m.targetY + m.targetH * 0.2 : m.targetY + m.targetH * 0.55
-      const w = 44 * m.scale
-      const h = 58 * m.scale
+      const x = stageX + 8
+      const w = stageW - 16
+      const beltH = (row === 0 ? 28 : 30) * m.scale
+      const centerY = m.targetY + m.targetH * (row === 0 ? 0.42 : 0.76)
+      const wheelR = beltH * 0.68
+      const leftX = x + wheelR * 0.66
+      const rightX = x + w - wheelR * 0.66
+      const straight = rightX - leftX
+      const topY = centerY - beltH * 0.35
+      const bottomY = centerY + beltH * 0.35
+      const arcR = (bottomY - topY) / 2
       return {
-        x: beltX - spacing * 0.45 + wrapped - w / 2,
-        y: rowY,
+        m,
+        x,
+        y: centerY,
         w,
-        h
+        h: beltH,
+        leftX,
+        rightX,
+        straight,
+        topY,
+        bottomY,
+        midY: centerY,
+        arcR,
+        perimeter: straight * 2 + Math.PI * arcR * 2
       }
+    }
+
+    function targetPose(target) {
+      const metrics = beltMetrics(target.row)
+      const direction = target.row === 0 ? -1 : 1
+      let s = (target.slot * metrics.perimeter / 4 + state.beltOffset * direction) % metrics.perimeter
+      if (s < 0) {
+        s += metrics.perimeter
+      }
+
+      const topLen = metrics.straight
+      const arcLen = Math.PI * metrics.arcR
+      const bottomLen = metrics.straight
+      let x = metrics.leftX
+      let baseY = metrics.topY
+      let angle = 0
+      let layer = 'top'
+      let scale = metrics.m.scale
+      let alpha = 1
+
+      if (s < topLen) {
+        x = metrics.leftX + s
+        baseY = metrics.topY
+      } else if (s < topLen + arcLen) {
+        const t = (s - topLen) / arcLen
+        const a = -Math.PI / 2 + t * Math.PI
+        x = metrics.rightX + Math.cos(a) * metrics.arcR
+        baseY = metrics.midY + Math.sin(a) * metrics.arcR
+        angle = t * Math.PI
+        layer = 'turn'
+        scale *= 0.94
+      } else if (s < topLen + arcLen + bottomLen) {
+        const t = (s - topLen - arcLen) / bottomLen
+        x = metrics.rightX - t * metrics.straight
+        baseY = metrics.bottomY
+        angle = Math.PI
+        layer = 'bottom'
+        scale *= 0.74
+        alpha = 0.5
+      } else {
+        const t = (s - topLen - arcLen - bottomLen) / arcLen
+        const a = Math.PI / 2 + t * Math.PI
+        x = metrics.leftX + Math.cos(a) * metrics.arcR
+        baseY = metrics.midY + Math.sin(a) * metrics.arcR
+        angle = Math.PI + t * Math.PI
+        layer = 'turn'
+        scale *= 0.94
+      }
+
+      return { x, baseY, angle, layer, scale, alpha }
+    }
+
+    function canHitTarget(target) {
+      const pose = targetPose(target)
+      return pose.layer === 'top' || pose.layer === 'turn'
+    }
+
+    function sortTargetsForDepth(a, b) {
+      const ap = targetPose(a)
+      const bp = targetPose(b)
+      const depth = { bottom: 0, turn: 1, top: 2 }
+      return depth[ap.layer] - depth[bp.layer] || ap.baseY - bp.baseY
+    }
+
+    function drawTargetsOnLayer(layerName) {
+      state.targets
+        .filter((target) => targetPose(target).layer === layerName)
+        .sort(sortTargetsForDepth)
+        .forEach(drawMonster)
+    }
+
+    function drawTargetsAboveBelts() {
+      state.targets
+        .filter((target) => targetPose(target).layer !== 'bottom')
+        .sort(sortTargetsForDepth)
+        .forEach(drawMonster)
     }
 
     function fire() {
@@ -239,6 +337,9 @@
         for (let i = 0; i < state.targets.length; i += 1) {
           const target = state.targets[i]
           if (target.state !== 'standing') {
+            continue
+          }
+          if (!canHitTarget(target)) {
             continue
           }
 
@@ -351,7 +452,7 @@
       ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2)
       ctx.fill()
       for (let i = 0; i < 10; i += 1) {
-        const a = i * Math.PI * 2 / 10 + state.beltOffset * 2.5
+        const a = i * Math.PI * 2 / 10 + state.beltOffset * 0.035
         ctx.fillStyle = i % 2 ? '#ffbe3d' : '#fff088'
         ctx.beginPath()
         ctx.arc(Math.cos(a) * r, Math.sin(a) * r, r * 0.12, 0, Math.PI * 2)
@@ -399,6 +500,7 @@
       strokeRounded(x + 2, y + 2, w - 4, h - 4, 9, '#f8f9ff', 2)
 
       drawLights(x + 14, y + 10, w - 28, h * 0.18)
+      drawTargetsOnLayer('bottom')
       drawConveyorRow(x + 8, y + h * 0.42, w - 16, 28 * m.scale, -1, m.scale)
       drawConveyorRow(x + 8, y + h * 0.76, w - 16, 30 * m.scale, 1, m.scale)
       drawText('击倒小怪兽', x + w / 2, y + h * 0.1, Math.max(13, m.w * 0.035), '#cc3459', 900)
@@ -408,7 +510,7 @@
       for (let i = 0; i < 18; i += 1) {
         const px = x + (w / 17) * i
         ctx.fillStyle = i % 3 === 0 ? '#ffeb56' : (i % 3 === 1 ? '#ff55a8' : '#53f2ff')
-        ctx.globalAlpha = 0.62 + Math.sin(state.beltOffset * 6 + i) * 0.25
+        ctx.globalAlpha = 0.62 + Math.sin(state.beltOffset * 0.12 + i) * 0.25
         ctx.beginPath()
         ctx.arc(px, y + h / 2, 3.2, 0, Math.PI * 2)
         ctx.fill()
@@ -552,6 +654,7 @@
 
     function drawMonster(target) {
       const b = targetBounds(target)
+      const pose = b.pose
       const down = target.state === 'down'
       const colors = [
         ['#38d37f', '#167241'],
@@ -562,7 +665,9 @@
       ][target.hue]
 
       ctx.save()
+      ctx.globalAlpha = pose.alpha
       ctx.translate(b.x + b.w / 2, b.y + b.h)
+      ctx.rotate(pose.angle)
       if (down) {
         const t = Math.min(1, (performance.now() - target.hitAt) / 180)
         ctx.rotate(-Math.PI * 0.48 * t)
@@ -600,6 +705,7 @@
       ctx.moveTo(-b.w * 0.18, -b.h * 0.36)
       ctx.quadraticCurveTo(0, -b.h * 0.27, b.w * 0.2, -b.h * 0.36)
       ctx.stroke()
+      ctx.globalAlpha = 1
       ctx.restore()
     }
 
@@ -638,7 +744,7 @@
     function draw() {
       drawBackground()
       drawCabinet()
-      state.targets.forEach(drawMonster)
+      drawTargetsAboveBelts()
       drawBalls()
       drawEffects()
     }
