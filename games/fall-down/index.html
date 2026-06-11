@@ -5,16 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>掉下去</title>
   <style>
-    :root {
-      --bg: #11151b;
-      --cabinet: #191c24;
-      --panel: #252934;
-      --trim: #ffb03b;
-      --red: #df553a;
-      --ink: #f7efe1;
-      --muted: #b8c0c9;
-    }
-
     * {
       box-sizing: border-box;
     }
@@ -25,8 +15,8 @@
       height: 100%;
       margin: 0;
       overflow: hidden;
-      background: radial-gradient(circle at 50% 0%, #2b313d 0, var(--bg) 58%);
-      color: var(--ink);
+      background: #171b25;
+      color: #fff6db;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
       touch-action: none;
       user-select: none;
@@ -40,7 +30,7 @@
 
     .back {
       position: fixed;
-      left: 14px;
+      left: 12px;
       top: 12px;
       z-index: 2;
       display: inline-flex;
@@ -49,7 +39,7 @@
       padding: 0 12px;
       border-radius: 6px;
       color: #11151b;
-      background: rgba(247, 239, 225, 0.88);
+      background: rgba(255, 248, 226, 0.9);
       font-size: 14px;
       font-weight: 800;
       text-decoration: none;
@@ -63,25 +53,31 @@
   <script>
     const canvas = document.querySelector('#game')
     const ctx = canvas.getContext('2d')
+
     const state = {
       width: 0,
       height: 0,
       dpr: 1,
       score: 0,
-      beltOffset: 0,
       lastTime: performance.now(),
       balls: [],
       targets: [],
       particles: [],
       flashes: [],
+      beltOffset: 0,
       fireCooldown: 0
     }
 
-    const TARGET_COUNT = 7
     const POINTS = 10
-    const TARGET_RESET_MS = 1250
-    const BALL_SPEED = 720
-    const BELT_SPEED = 96
+    const TARGET_RESET_MS = 1200
+    const BALL_SPEED = 860
+    const TARGETS = [
+      { col: 0.22, row: 0, hue: 0, phase: 0 },
+      { col: 0.50, row: 0, hue: 1, phase: 1.8 },
+      { col: 0.78, row: 0, hue: 2, phase: 3.4 },
+      { col: 0.36, row: 1, hue: 3, phase: 4.7 },
+      { col: 0.64, row: 1, hue: 4, phase: 5.6 }
+    ]
 
     function resize() {
       state.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1))
@@ -93,81 +89,72 @@
       layoutTargets()
     }
 
-    function machine() {
-      const compact = state.width < 560
-      const margin = compact ? Math.max(8, Math.min(16, state.width * 0.03)) : Math.max(12, Math.min(22, state.width * 0.035))
-      const top = Math.max(56, state.height * 0.075)
-      const bottom = Math.max(16, state.height * 0.035)
-      const x = margin
-      const y = top
-      const w = state.width - margin * 2
-      const h = state.height - top - bottom
-      const cannonW = compact ? Math.max(86, Math.min(112, w * 0.27)) : Math.max(118, Math.min(178, w * 0.23))
-      const playX = x + cannonW + (compact ? 8 : 14)
+    function layout() {
+      const safeTop = 54
+      const maxW = Math.min(state.width - 18, state.height * 0.58)
+      const machineW = Math.max(310, maxW)
+      const machineH = state.height - safeTop - 10
+      const x = (state.width - machineW) / 2
+      const y = safeTop
+      const headerH = machineH * 0.24
+      const targetH = machineH * 0.31
+      const controlH = machineH - headerH - targetH
       return {
         x,
         y,
-        w,
-        h,
-        compact,
-        cannonW,
-        playX,
-        playW: x + w - playX - (compact ? 8 : 12),
-        scoreH: Math.max(48, Math.min(70, h * 0.12)),
-        beltY: y + h * 0.48,
-        beltH: compact ? Math.max(76, Math.min(108, h * 0.18)) : Math.max(88, Math.min(132, h * 0.22))
-      }
-    }
-
-    function cannon() {
-      const m = machine()
-      const baseX = m.x + 26
-      const baseY = m.y + m.h - 58
-      const barrelX = m.x + m.cannonW - 26
-      const barrelY = baseY - Math.max(86, m.h * 0.2)
-      return {
-        baseX,
-        baseY,
-        barrelX,
-        barrelY,
-        muzzleX: barrelX + 30,
-        muzzleY: barrelY - 6
+        w: machineW,
+        h: machineH,
+        headerY: y + 10,
+        headerH,
+        targetY: y + headerH + 8,
+        targetH,
+        controlY: y + headerH + targetH + 8,
+        controlH,
+        scale: machineW / 390
       }
     }
 
     function layoutTargets() {
-      const m = machine()
-      const spacing = Math.max(112, m.playW / 4.4)
-      if (!state.targets.length) {
-        for (let i = 0; i < TARGET_COUNT; i += 1) {
-          state.targets.push({
-            lane: i,
-            offset: i * spacing,
-            state: 'standing',
-            hitAt: 0,
-            hue: i % 3
-          })
-        }
-      } else {
-        state.targets.forEach((target, i) => {
-          target.offset = i * spacing
+      if (state.targets.length) {
+        return
+      }
+
+      TARGETS.forEach((target, index) => {
+        state.targets.push({
+          id: index,
+          col: target.col,
+          row: target.row,
+          hue: target.hue,
+          phase: target.phase,
+          state: 'standing',
+          hitAt: 0
         })
+      })
+    }
+
+    function cannon() {
+      const m = layout()
+      const centerX = m.x + m.w * 0.5
+      const muzzleY = m.controlY + m.controlH * 0.34
+      return {
+        centerX,
+        baseY: m.y + m.h - 24,
+        muzzleX: centerX,
+        muzzleY
       }
     }
 
-    function targetPosition(target) {
-      const m = machine()
-      const spacing = Math.max(112, m.playW / 4.4)
-      const loop = spacing * TARGET_COUNT
-      let x = m.playX - 90 + ((target.offset + state.beltOffset) % loop)
-      if (x > m.playX + m.playW + 70) {
-        x -= loop
-      }
+    function targetBounds(target) {
+      const m = layout()
+      const sway = Math.sin(state.beltOffset * 0.8 + target.phase) * m.w * 0.018
+      const rowY = target.row === 0 ? m.targetY + m.targetH * 0.18 : m.targetY + m.targetH * 0.53
+      const w = 44 * m.scale
+      const h = 58 * m.scale
       return {
-        x,
-        y: m.beltY - 26,
-        w: 54,
-        h: 82
+        x: m.x + m.w * target.col - w / 2 + sway,
+        y: rowY,
+        w,
+        h
       }
     }
 
@@ -180,54 +167,48 @@
       state.balls.push({
         x: c.muzzleX,
         y: c.muzzleY,
-        vx: BALL_SPEED,
-        vy: -82,
-        r: 10,
-        born: performance.now()
+        vx: (Math.random() - 0.5) * 22,
+        vy: -BALL_SPEED,
+        r: 8 * layout().scale
       })
-      state.fireCooldown = 0.08
-      addFlash(c.muzzleX + 12, c.muzzleY, '#fff7c2')
+      state.fireCooldown = 0.075
+      addFlash(c.muzzleX, c.muzzleY - 6, '#fff6ad')
     }
 
     function addFlash(x, y, color) {
-      state.flashes.push({
-        x,
-        y,
-        color,
-        life: 0.18,
-        max: 0.18
-      })
+      state.flashes.push({ x, y, color, life: 0.18, max: 0.18 })
     }
 
     function addParticles(x, y) {
-      for (let i = 0; i < 10; i += 1) {
+      for (let i = 0; i < 12; i += 1) {
         const angle = Math.random() * Math.PI * 2
-        const speed = 60 + Math.random() * 130
+        const speed = 70 + Math.random() * 140
         state.particles.push({
           x,
           y,
           vx: Math.cos(angle) * speed,
-          vy: Math.sin(angle) * speed - 40,
-          life: 0.42,
-          max: 0.42
+          vy: Math.sin(angle) * speed - 30,
+          life: 0.48,
+          max: 0.48
         })
       }
     }
 
-    function hitTarget(ball, target, bounds, now) {
+    function hitTarget(target, bounds, now) {
       target.state = 'down'
       target.hitAt = now
       state.score += POINTS
-      addFlash(bounds.x + bounds.w / 2, bounds.y + 18, '#ffef78')
-      addParticles(bounds.x + bounds.w / 2, bounds.y + 20)
+      addFlash(bounds.x + bounds.w / 2, bounds.y + bounds.h * 0.35, '#ffef75')
+      addParticles(bounds.x + bounds.w / 2, bounds.y + bounds.h * 0.35)
     }
 
     function update(dt, now) {
-      state.beltOffset += BELT_SPEED * dt
+      const m = layout()
+      state.beltOffset += dt
       state.fireCooldown = Math.max(0, state.fireCooldown - dt)
 
       state.targets.forEach((target) => {
-        if (target.state === 'down' && now - target.hitAt > TARGET_RESET_MS) {
+        if (target.state === 'down' && now - target.hitAt >= TARGET_RESET_MS) {
           target.state = 'standing'
         }
       })
@@ -235,12 +216,11 @@
       state.balls.forEach((ball) => {
         ball.x += ball.vx * dt
         ball.y += ball.vy * dt
-        ball.vy += 86 * dt
+        ball.vy += 90 * dt
       })
 
       state.balls = state.balls.filter((ball) => {
-        const m = machine()
-        if (ball.x > m.x + m.w + 80 || ball.y < 0 || ball.y > state.height + 80) {
+        if (ball.y < m.headerY - 40 || ball.y > m.y + m.h + 40) {
           return false
         }
 
@@ -250,14 +230,14 @@
             continue
           }
 
-          const b = targetPosition(target)
+          const b = targetBounds(target)
           const hit =
-            ball.x + ball.r > b.x + 7 &&
-            ball.x - ball.r < b.x + b.w - 7 &&
-            ball.y + ball.r > b.y + 6 &&
-            ball.y - ball.r < b.y + b.h - 12
+            ball.x + ball.r > b.x + 5 &&
+            ball.x - ball.r < b.x + b.w - 5 &&
+            ball.y + ball.r > b.y + 4 &&
+            ball.y - ball.r < b.y + b.h - 7
           if (hit) {
-            hitTarget(ball, target, b, now)
+            hitTarget(target, b, now)
             return false
           }
         }
@@ -295,210 +275,312 @@
       ctx.fill()
     }
 
+    function strokeRounded(x, y, w, h, r, color, lineWidth) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = lineWidth
+      roundedRect(x, y, w, h, r)
+      ctx.stroke()
+    }
+
     function drawText(text, x, y, size, color, weight, align) {
       ctx.fillStyle = color
-      ctx.font = `${weight || 700} ${size}px "Segoe UI", Arial, sans-serif`
+      ctx.font = `${weight || 800} ${size}px "Segoe UI", Arial, sans-serif`
       ctx.textAlign = align || 'center'
       ctx.textBaseline = 'middle'
       ctx.fillText(text, x, y)
     }
 
-    function drawCabinet() {
-      const m = machine()
-      fillRounded(m.x, m.y, m.w, m.h, 14, '#151821')
-      ctx.strokeStyle = '#ffb03b'
-      ctx.lineWidth = 5
-      roundedRect(m.x + 2, m.y + 2, m.w - 4, m.h - 4, 13)
-      ctx.stroke()
-      fillRounded(m.x + 10, m.y + 10, m.w - 20, m.scoreH, 8, '#222733')
-      fillRounded(m.playX, m.y + m.scoreH + 16, m.playW, m.h - m.scoreH - 30, 8, '#08090d')
+    function drawBackground() {
+      const gradient = ctx.createLinearGradient(0, 0, 0, state.height)
+      gradient.addColorStop(0, '#252b3a')
+      gradient.addColorStop(1, '#0e1118')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, state.width, state.height)
+    }
 
-      drawScorePanel(m)
-      drawBelt(m)
+    function drawCabinet() {
+      const m = layout()
+      fillRounded(m.x, m.y, m.w, m.h, 18, '#1d2431')
+      strokeRounded(m.x + 2, m.y + 2, m.w - 4, m.h - 4, 16, '#f04b75', 5)
+      strokeRounded(m.x + 9, m.y + 9, m.w - 18, m.h - 18, 12, '#51b9ff', 2)
+
+      drawHeader(m)
+      drawTargetStage(m)
+      drawControlDeck(m)
+    }
+
+    function drawHeader(m) {
+      const x = m.x + 14
+      const y = m.headerY
+      const w = m.w - 28
+      const h = m.headerH - 8
+      const bg = ctx.createLinearGradient(x, y, x + w, y + h)
+      bg.addColorStop(0, '#146bd1')
+      bg.addColorStop(0.55, '#2e9dec')
+      bg.addColorStop(1, '#1657bb')
+      fillRounded(x, y, w, h, 10, bg)
+
+      drawText('梁二大炮乐园', x + w / 2, y + h * 0.13, Math.max(18, m.w * 0.056), '#fff6b0', 900)
+      drawScoreWheel(x + w / 2, y + h * 0.56, Math.min(h * 0.25, w * 0.16))
+      drawDecor(x + w * 0.18, y + h * 0.52, m.scale, '#8bd84e')
+      drawDecor(x + w * 0.82, y + h * 0.55, m.scale, '#ffe35c')
+      drawText('掉下去', x + w / 2, y + h * 0.88, Math.max(15, m.w * 0.04), '#ffffff', 900)
+    }
+
+    function drawScoreWheel(x, y, r) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.fillStyle = '#ff405f'
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 1.28, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#1d1117'
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2)
+      ctx.fill()
+      for (let i = 0; i < 10; i += 1) {
+        const a = i * Math.PI * 2 / 10 + state.beltOffset * 2.5
+        ctx.fillStyle = i % 2 ? '#ffbe3d' : '#fff088'
+        ctx.beginPath()
+        ctx.arc(Math.cos(a) * r, Math.sin(a) * r, r * 0.12, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.shadowColor = '#ff2d38'
+      ctx.shadowBlur = 10
+      drawText(String(state.score).padStart(3, '0'), 0, 1, r * 0.48, '#ff3038', 900)
+      ctx.shadowBlur = 0
+      ctx.restore()
+    }
+
+    function drawDecor(x, y, scale, color) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.scale(scale, scale)
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.arc(0, 0, 18, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#182431'
+      ctx.beginPath()
+      ctx.arc(-6, -5, 3, 0, Math.PI * 2)
+      ctx.arc(6, -5, 3, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#182431'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(-9, 5)
+      ctx.quadraticCurveTo(0, 13, 10, 5)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    function drawTargetStage(m) {
+      const x = m.x + 18
+      const y = m.targetY
+      const w = m.w - 36
+      const h = m.targetH
+      const wall = ctx.createLinearGradient(x, y, x, y + h)
+      wall.addColorStop(0, '#d7f2ff')
+      wall.addColorStop(0.42, '#74c4f6')
+      wall.addColorStop(1, '#fee66d')
+      fillRounded(x, y, w, h, 10, wall)
+      strokeRounded(x + 2, y + 2, w - 4, h - 4, 9, '#f8f9ff', 2)
+
+      drawLights(x + 14, y + 10, w - 28, h * 0.18)
+      drawShelf(x + 8, y + h * 0.39, w - 16, 12 * m.scale)
+      drawShelf(x + 8, y + h * 0.73, w - 16, 13 * m.scale)
+      drawText('击倒小怪兽', x + w / 2, y + h * 0.1, Math.max(13, m.w * 0.035), '#cc3459', 900)
+    }
+
+    function drawLights(x, y, w, h) {
+      for (let i = 0; i < 18; i += 1) {
+        const px = x + (w / 17) * i
+        ctx.fillStyle = i % 3 === 0 ? '#ffeb56' : (i % 3 === 1 ? '#ff55a8' : '#53f2ff')
+        ctx.globalAlpha = 0.62 + Math.sin(state.beltOffset * 6 + i) * 0.25
+        ctx.beginPath()
+        ctx.arc(px, y + h / 2, 3.2, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.globalAlpha = 1
+    }
+
+    function drawShelf(x, y, w, h) {
+      const gradient = ctx.createLinearGradient(x, y, x, y + h)
+      gradient.addColorStop(0, '#fff9a5')
+      gradient.addColorStop(1, '#d09b23')
+      fillRounded(x, y, w, h, h / 2, gradient)
+      ctx.fillStyle = 'rgba(96, 61, 24, 0.28)'
+      ctx.fillRect(x + 8, y + h - 3, w - 16, 3)
+    }
+
+    function drawControlDeck(m) {
+      const x = m.x + 18
+      const y = m.controlY
+      const w = m.w - 36
+      const h = m.controlH - 18
+      const deck = ctx.createLinearGradient(x, y, x, y + h)
+      deck.addColorStop(0, '#51bbff')
+      deck.addColorStop(0.55, '#1f86f0')
+      deck.addColorStop(1, '#1663cd')
+      fillRounded(x, y, w, h, 12, deck)
+      strokeRounded(x + 2, y + 2, w - 4, h - 4, 10, '#a9e5ff', 2)
+
+      drawBallPool(m)
       drawCannon(m)
     }
 
-    function drawScorePanel(m) {
-      const scoreW = m.compact ? Math.min(118, m.playW * 0.48) : Math.min(260, m.playW * 0.48)
-      const titleW = m.compact ? Math.min(112, Math.max(88, m.playW - scoreW - 10)) : 138
-      const titleX = m.compact ? m.playX + scoreW + 8 : m.playX + m.playW - titleW - 22
-      fillRounded(m.playX, m.y + 18, scoreW, m.scoreH - 16, 6, '#07090b')
-      ctx.shadowColor = '#ff3333'
-      ctx.shadowBlur = 12
-      drawText(String(state.score).padStart(4, '0'), m.playX + scoreW / 2, m.y + m.scoreH / 2 + 5, Math.min(38, m.scoreH * 0.56), '#ff3535', 900)
-      ctx.shadowBlur = 0
-
-      fillRounded(titleX, m.y + 21, titleW, m.scoreH - 22, 6, '#2b303b')
-      drawText('掉下去', titleX + titleW / 2, m.y + m.scoreH / 2 + 5, m.compact ? 20 : 24, '#ffe0a3', 900)
-    }
-
-    function drawBelt(m) {
-      const beltY = m.beltY
-      fillRounded(m.playX - 12, beltY, m.playW + 24, m.beltH, 10, '#20242b')
-      fillRounded(m.playX, beltY + 18, m.playW, m.beltH - 36, 7, '#35323a')
-
-      const stripeW = 34
-      ctx.save()
-      ctx.beginPath()
-      roundedRect(m.playX, beltY + 18, m.playW, m.beltH - 36, 7)
-      ctx.clip()
-      for (let x = m.playX - stripeW * 2 + (state.beltOffset % stripeW); x < m.playX + m.playW + stripeW; x += stripeW) {
-        ctx.fillStyle = '#48434d'
-        ctx.beginPath()
-        ctx.moveTo(x, beltY + 18)
-        ctx.lineTo(x + 18, beltY + 18)
-        ctx.lineTo(x + stripeW, beltY + m.beltH - 18)
-        ctx.lineTo(x + stripeW - 18, beltY + m.beltH - 18)
-        ctx.closePath()
-        ctx.fill()
+    function drawBallPool(m) {
+      const x = m.x + 24
+      const y = m.controlY + m.controlH * 0.47
+      const r = 8 * m.scale
+      const colors = ['#ffd052', '#45d16f', '#5bb7ff', '#ff6d78', '#ec8b36']
+      for (let row = 0; row < 5; row += 1) {
+        for (let col = 0; col < 5; col += 1) {
+          ctx.fillStyle = colors[(row + col) % colors.length]
+          ctx.beginPath()
+          ctx.arc(x + col * r * 1.45 + (row % 2) * r * 0.6, y + row * r * 1.25, r, 0, Math.PI * 2)
+          ctx.fill()
+        }
       }
-      ctx.restore()
-
-      drawWheel(m.playX + 10, beltY + m.beltH / 2, 30)
-      drawWheel(m.playX + m.playW - 10, beltY + m.beltH / 2, 30)
-    }
-
-    function drawWheel(x, y, r) {
-      ctx.save()
-      ctx.translate(x, y)
-      ctx.rotate(state.beltOffset / 36)
-      ctx.fillStyle = '#12151b'
-      ctx.beginPath()
-      ctx.arc(0, 0, r, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = '#616978'
-      ctx.lineWidth = 4
-      for (let i = 0; i < 6; i += 1) {
-        ctx.rotate(Math.PI / 3)
-        ctx.beginPath()
-        ctx.moveTo(0, 0)
-        ctx.lineTo(r - 4, 0)
-        ctx.stroke()
-      }
-      ctx.restore()
     }
 
     function drawCannon(m) {
       const c = cannon()
-      const bodyX = m.x + 24
-      const bodyY = c.barrelY + 32
-      fillRounded(bodyX, bodyY, m.cannonW - 34, m.h - (bodyY - m.y) - 24, 18, '#f68a2f')
-      fillRounded(bodyX + 14, bodyY + 24, m.cannonW - 62, m.h - (bodyY - m.y) - 78, 14, '#ffb23e')
+      const scale = m.scale
+      const bodyW = 128 * scale
+      const bodyH = 158 * scale
+      const bodyX = c.centerX - bodyW / 2
+      const bodyY = m.controlY + m.controlH * 0.22
 
-      ctx.fillStyle = '#d34b30'
-      ctx.beginPath()
-      ctx.ellipse(c.barrelX - 26, c.barrelY + 4, 40, 56, -0.08, 0, Math.PI * 2)
-      ctx.fill()
-      fillRounded(c.barrelX - 8, c.barrelY - 28, 50, 44, 18, '#ffad3a')
-      fillRounded(c.barrelX + 20, c.barrelY - 17, 42, 23, 12, '#f05a34')
-      fillRounded(c.barrelX + 50, c.barrelY - 13, 22, 15, 8, '#101319')
+      ctx.save()
+      ctx.shadowColor = 'rgba(21, 239, 255, 0.75)'
+      ctx.shadowBlur = 18
+      fillRounded(bodyX, bodyY, bodyW, bodyH, 28 * scale, 'rgba(194, 238, 255, 0.26)')
+      ctx.shadowBlur = 0
+
+      fillRounded(bodyX + 16 * scale, bodyY + 34 * scale, bodyW - 32 * scale, bodyH - 46 * scale, 24 * scale, '#dff5ff')
+      fillRounded(bodyX + 28 * scale, bodyY + 45 * scale, bodyW - 56 * scale, bodyH - 70 * scale, 18 * scale, '#6ed4ff')
+
+      const barrelW = 42 * scale
+      fillRounded(c.centerX - barrelW / 2, bodyY - 18 * scale, barrelW, 80 * scale, 18 * scale, '#f3fbff')
+      fillRounded(c.centerX - barrelW * 0.34, bodyY - 34 * scale, barrelW * 0.68, 34 * scale, 14 * scale, '#96e2ff')
+      fillRounded(c.centerX - barrelW * 0.22, bodyY - 47 * scale, barrelW * 0.44, 20 * scale, 9 * scale, '#1a2835')
 
       ctx.fillStyle = '#fff'
       ctx.beginPath()
-      ctx.arc(bodyX + 50, m.y + 64, 14, 0, Math.PI * 2)
+      ctx.arc(c.centerX, bodyY + 22 * scale, 16 * scale, 0, Math.PI * 2)
       ctx.fill()
-      ctx.strokeStyle = '#ffb03b'
-      ctx.lineWidth = 5
+      ctx.strokeStyle = '#ffe738'
+      ctx.lineWidth = 6 * scale
       ctx.beginPath()
-      ctx.arc(bodyX + 50, m.y + 64, 24, 0, Math.PI * 2)
+      ctx.arc(c.centerX, bodyY + 22 * scale, 27 * scale, 0, Math.PI * 2)
       ctx.stroke()
-      drawText('球', bodyX + 50, m.y + 64, 13, '#bf3d2e', 900)
 
-      fillRounded(bodyX + 20, m.y + m.h - 70, m.cannonW - 62, 46, 10, '#c9422d')
-      drawText('FIRE', bodyX + (m.cannonW - 34) / 2, m.y + m.h - 47, 18, '#fff2c4', 900)
+      drawText('装弹口', c.centerX, bodyY + 62 * scale, 15 * scale, '#115586', 900)
+      drawButton(c.centerX - bodyW * 0.39, bodyY + bodyH - 34 * scale, 18 * scale)
+      drawButton(c.centerX + bodyW * 0.39, bodyY + bodyH - 34 * scale, 18 * scale)
+      drawText('点击发射', c.centerX, bodyY + bodyH - 12 * scale, 16 * scale, '#fffbd2', 900)
+      ctx.restore()
+    }
+
+    function drawButton(x, y, r) {
+      ctx.fillStyle = '#b72231'
+      ctx.beginPath()
+      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#ff5663'
+      ctx.beginPath()
+      ctx.arc(x - r * 0.25, y - r * 0.25, r * 0.5, 0, Math.PI * 2)
+      ctx.fill()
     }
 
     function drawMonster(target) {
-      const b = targetPosition(target)
+      const b = targetBounds(target)
       const down = target.state === 'down'
       const colors = [
-        ['#68d391', '#2f855a'],
-        ['#63b3ed', '#2b6cb0'],
-        ['#f6ad55', '#c05621']
+        ['#38d37f', '#167241'],
+        ['#4fc4ff', '#1562b0'],
+        ['#ff7060', '#a72828'],
+        ['#ffc94f', '#ba7b14'],
+        ['#b56cff', '#6a35a0']
       ][target.hue]
 
       ctx.save()
       ctx.translate(b.x + b.w / 2, b.y + b.h)
       if (down) {
-        ctx.rotate(-Math.PI / 2.6)
-        ctx.translate(-8, -10)
+        const t = Math.min(1, (performance.now() - target.hitAt) / 180)
+        ctx.rotate(-Math.PI * 0.48 * t)
+        ctx.translate(0, -b.h * 0.08 * t)
       }
 
-      fillRounded(-22, -12, 44, 14, 5, '#504032')
-      fillRounded(-20, -64, 40, 48, 13, colors[0])
+      fillRounded(-b.w * 0.5, -b.h * 0.12, b.w, b.h * 0.14, 5, '#744c2b')
+      fillRounded(-b.w * 0.39, -b.h * 0.78, b.w * 0.78, b.h * 0.62, 13, colors[0])
       ctx.fillStyle = colors[1]
       ctx.beginPath()
-      ctx.moveTo(-16, -64)
-      ctx.lineTo(-7, -78)
-      ctx.lineTo(1, -64)
+      ctx.moveTo(-b.w * 0.32, -b.h * 0.78)
+      ctx.lineTo(-b.w * 0.12, -b.h * 1.02)
+      ctx.lineTo(-b.w * 0.02, -b.h * 0.78)
       ctx.fill()
       ctx.beginPath()
-      ctx.moveTo(8, -64)
-      ctx.lineTo(18, -78)
-      ctx.lineTo(18, -60)
+      ctx.moveTo(b.w * 0.15, -b.h * 0.78)
+      ctx.lineTo(b.w * 0.36, -b.h * 1.02)
+      ctx.lineTo(b.w * 0.32, -b.h * 0.75)
       ctx.fill()
 
       ctx.fillStyle = '#fff'
       ctx.beginPath()
-      ctx.arc(-8, -47, 6, 0, Math.PI * 2)
-      ctx.arc(9, -47, 6, 0, Math.PI * 2)
+      ctx.arc(-b.w * 0.16, -b.h * 0.56, b.w * 0.12, 0, Math.PI * 2)
+      ctx.arc(b.w * 0.18, -b.h * 0.56, b.w * 0.12, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#11151b'
+      ctx.fillStyle = '#101520'
       ctx.beginPath()
-      ctx.arc(-7, -46, 2.5, 0, Math.PI * 2)
-      ctx.arc(10, -46, 2.5, 0, Math.PI * 2)
+      ctx.arc(-b.w * 0.14, -b.h * 0.55, b.w * 0.045, 0, Math.PI * 2)
+      ctx.arc(b.w * 0.2, -b.h * 0.55, b.w * 0.045, 0, Math.PI * 2)
       ctx.fill()
-      ctx.strokeStyle = '#11151b'
-      ctx.lineWidth = 3
-      ctx.beginPath()
-      ctx.moveTo(-9, -32)
-      ctx.quadraticCurveTo(0, -25, 11, -32)
-      ctx.stroke()
 
-      ctx.fillStyle = colors[1]
+      ctx.strokeStyle = '#101520'
+      ctx.lineWidth = Math.max(2, b.w * 0.06)
       ctx.beginPath()
-      ctx.ellipse(-23, -42, 8, 13, -0.6, 0, Math.PI * 2)
-      ctx.ellipse(23, -42, 8, 13, 0.6, 0, Math.PI * 2)
-      ctx.fill()
+      ctx.moveTo(-b.w * 0.18, -b.h * 0.36)
+      ctx.quadraticCurveTo(0, -b.h * 0.27, b.w * 0.2, -b.h * 0.36)
+      ctx.stroke()
       ctx.restore()
     }
 
     function drawBalls() {
       state.balls.forEach((ball) => {
-        ctx.fillStyle = '#fdfdfb'
+        const glow = ctx.createRadialGradient(ball.x - ball.r * 0.35, ball.y - ball.r * 0.45, 1, ball.x, ball.y, ball.r)
+        glow.addColorStop(0, '#ffffff')
+        glow.addColorStop(1, '#dcefff')
+        ctx.fillStyle = glow
         ctx.beginPath()
         ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2)
         ctx.fill()
-        ctx.strokeStyle = 'rgba(255,255,255,0.45)'
-        ctx.lineWidth = 3
-        ctx.beginPath()
-        ctx.arc(ball.x - 3, ball.y - 3, ball.r * 0.45, 0, Math.PI * 2)
-        ctx.stroke()
       })
     }
 
     function drawEffects() {
       state.particles.forEach((particle) => {
         const alpha = Math.max(0, particle.life / particle.max)
-        ctx.fillStyle = `rgba(255, 226, 94, ${alpha})`
+        ctx.fillStyle = `rgba(255, 236, 94, ${alpha})`
         ctx.beginPath()
-        ctx.arc(particle.x, particle.y, 3 + alpha * 2, 0, Math.PI * 2)
+        ctx.arc(particle.x, particle.y, 3 + alpha * 3, 0, Math.PI * 2)
         ctx.fill()
       })
 
       state.flashes.forEach((flash) => {
         const alpha = Math.max(0, flash.life / flash.max)
-        ctx.fillStyle = flash.color
         ctx.globalAlpha = alpha
+        ctx.fillStyle = flash.color
         ctx.beginPath()
-        ctx.arc(flash.x, flash.y, 18 * (1.2 - alpha), 0, Math.PI * 2)
+        ctx.arc(flash.x, flash.y, 20 * (1.2 - alpha), 0, Math.PI * 2)
         ctx.fill()
         ctx.globalAlpha = 1
       })
     }
 
     function draw() {
-      ctx.clearRect(0, 0, state.width, state.height)
+      drawBackground()
       drawCabinet()
       state.targets.forEach(drawMonster)
       drawBalls()
@@ -520,6 +602,7 @@
         }
         fire()
       })
+
       window.addEventListener('keydown', (event) => {
         if (event.code === 'Space' || event.code === 'Enter') {
           event.preventDefault()
