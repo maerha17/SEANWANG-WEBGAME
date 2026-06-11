@@ -6,6 +6,7 @@ Sean Wang 的网页小游戏合集。
 
 - 数独：`games/sudoku/`
 - 2048：`games/2048/`
+- 掉下去：`games/fall-down/`
 
 ## 本地运行
 
@@ -16,4 +17,3 @@ python -m http.server 8080
 ```
 
 然后访问 `http://localhost:8080`。
-

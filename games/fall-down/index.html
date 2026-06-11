@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>掉下去</title>
+  <style>
+    :root {
+      --bg: #11151b;
+      --cabinet: #191c24;
+      --panel: #252934;
+      --trim: #ffb03b;
+      --red: #df553a;
+      --ink: #f7efe1;
+      --muted: #b8c0c9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, #2b313d 0, var(--bg) 58%);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      touch-action: none;
+      user-select: none;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .back {
+      position: fixed;
+      left: 14px;
+      top: 12px;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      color: #11151b;
+      background: rgba(247, 239, 225, 0.88);
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="../../">返回</a>
+  <canvas id="game" aria-label="掉下去游戏"></canvas>
+
+  <script>
+    const canvas = document.querySelector('#game')
+    const ctx = canvas.getContext('2d')
+    const state = {
+      width: 0,
+      height: 0,
+      dpr: 1,
+      score: 0,
+      beltOffset: 0,
+      lastTime: performance.now(),
+      balls: [],
+      targets: [],
+      particles: [],
+      flashes: [],
+      fireCooldown: 0
+    }
+
+    const TARGET_COUNT = 7
+    const POINTS = 10
+    const TARGET_RESET_MS = 1250
+    const BALL_SPEED = 720
+    const BELT_SPEED = 96
+
+    function resize() {
+      state.dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1))
+      state.width = window.innerWidth
+      state.height = window.innerHeight
+      canvas.width = Math.floor(state.width * state.dpr)
+      canvas.height = Math.floor(state.height * state.dpr)
+      ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0)
+      layoutTargets()
+    }
+
+    function machine() {
+      const compact = state.width < 560
+      const margin = compact ? Math.max(8, Math.min(16, state.width * 0.03)) : Math.max(12, Math.min(22, state.width * 0.035))
+      const top = Math.max(56, state.height * 0.075)
+      const bottom = Math.max(16, state.height * 0.035)
+      const x = margin
+      const y = top
+      const w = state.width - margin * 2
+      const h = state.height - top - bottom
+      const cannonW = compact ? Math.max(86, Math.min(112, w * 0.27)) : Math.max(118, Math.min(178, w * 0.23))
+      const playX = x + cannonW + (compact ? 8 : 14)
+      return {
+        x,
+        y,
+        w,
+        h,
+        compact,
+        cannonW,
+        playX,
+        playW: x + w - playX - (compact ? 8 : 12),
+        scoreH: Math.max(48, Math.min(70, h * 0.12)),
+        beltY: y + h * 0.48,
+        beltH: compact ? Math.max(76, Math.min(108, h * 0.18)) : Math.max(88, Math.min(132, h * 0.22))
+      }
+    }
+
+    function cannon() {
+      const m = machine()
+      const baseX = m.x + 26
+      const baseY = m.y + m.h - 58
+      const barrelX = m.x + m.cannonW - 26
+      const barrelY = baseY - Math.max(86, m.h * 0.2)
+      return {
+        baseX,
+        baseY,
+        barrelX,
+        barrelY,
+        muzzleX: barrelX + 30,
+        muzzleY: barrelY - 6
+      }
+    }
+
+    function layoutTargets() {
+      const m = machine()
+      const spacing = Math.max(112, m.playW / 4.4)
+      if (!state.targets.length) {
+        for (let i = 0; i < TARGET_COUNT; i += 1) {
+          state.targets.push({
+            lane: i,
+            offset: i * spacing,
+            state: 'standing',
+            hitAt: 0,
+            hue: i % 3
+          })
+        }
+      } else {
+        state.targets.forEach((target, i) => {
+          target.offset = i * spacing
+        })
+      }
+    }
+
+    function targetPosition(target) {
+      const m = machine()
+      const spacing = Math.max(112, m.playW / 4.4)
+      const loop = spacing * TARGET_COUNT
+      let x = m.playX - 90 + ((target.offset + state.beltOffset) % loop)
+      if (x > m.playX + m.playW + 70) {
+        x -= loop
+      }
+      return {
+        x,
+        y: m.beltY - 26,
+        w: 54,
+        h: 82
+      }
+    }
+
+    function fire() {
+      if (state.fireCooldown > 0) {
+        return
+      }
+
+      const c = cannon()
+      state.balls.push({
+        x: c.muzzleX,
+        y: c.muzzleY,
+        vx: BALL_SPEED,
+        vy: -82,
+        r: 10,
+        born: performance.now()
+      })
+      state.fireCooldown = 0.08
+      addFlash(c.muzzleX + 12, c.muzzleY, '#fff7c2')
+    }
+
+    function addFlash(x, y, color) {
+      state.flashes.push({
+        x,
+        y,
+        color,
+        life: 0.18,
+        max: 0.18
+      })
+    }
+
+    function addParticles(x, y) {
+      for (let i = 0; i < 10; i += 1) {
+        const angle = Math.random() * Math.PI * 2
+        const speed = 60 + Math.random() * 130
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed - 40,
+          life: 0.42,
+          max: 0.42
+        })
+      }
+    }
+
+    function hitTarget(ball, target, bounds, now) {
+      target.state = 'down'
+      target.hitAt = now
+      state.score += POINTS
+      addFlash(bounds.x + bounds.w / 2, bounds.y + 18, '#ffef78')
+      addParticles(bounds.x + bounds.w / 2, bounds.y + 20)
+    }
+
+    function update(dt, now) {
+      state.beltOffset += BELT_SPEED * dt
+      state.fireCooldown = Math.max(0, state.fireCooldown - dt)
+
+      state.targets.forEach((target) => {
+        if (target.state === 'down' && now - target.hitAt > TARGET_RESET_MS) {
+          target.state = 'standing'
+        }
+      })
+
+      state.balls.forEach((ball) => {
+        ball.x += ball.vx * dt
+        ball.y += ball.vy * dt
+        ball.vy += 86 * dt
+      })
+
+      state.balls = state.balls.filter((ball) => {
+        const m = machine()
+        if (ball.x > m.x + m.w + 80 || ball.y < 0 || ball.y > state.height + 80) {
+          return false
+        }
+
+        for (let i = 0; i < state.targets.length; i += 1) {
+          const target = state.targets[i]
+          if (target.state !== 'standing') {
+            continue
+          }
+
+          const b = targetPosition(target)
+          const hit =
+            ball.x + ball.r > b.x + 7 &&
+            ball.x - ball.r < b.x + b.w - 7 &&
+            ball.y + ball.r > b.y + 6 &&
+            ball.y - ball.r < b.y + b.h - 12
+          if (hit) {
+            hitTarget(ball, target, b, now)
+            return false
+          }
+        }
+
+        return true
+      })
+
+      state.particles.forEach((particle) => {
+        particle.x += particle.vx * dt
+        particle.y += particle.vy * dt
+        particle.vy += 260 * dt
+        particle.life -= dt
+      })
+      state.particles = state.particles.filter((particle) => particle.life > 0)
+
+      state.flashes.forEach((flash) => {
+        flash.life -= dt
+      })
+      state.flashes = state.flashes.filter((flash) => flash.life > 0)
+    }
+
+    function roundedRect(x, y, w, h, r) {
+      ctx.beginPath()
+      ctx.moveTo(x + r, y)
+      ctx.arcTo(x + w, y, x + w, y + h, r)
+      ctx.arcTo(x + w, y + h, x, y + h, r)
+      ctx.arcTo(x, y + h, x, y, r)
+      ctx.arcTo(x, y, x + w, y, r)
+      ctx.closePath()
+    }
+
+    function fillRounded(x, y, w, h, r, color) {
+      ctx.fillStyle = color
+      roundedRect(x, y, w, h, r)
+      ctx.fill()
+    }
+
+    function drawText(text, x, y, size, color, weight, align) {
+      ctx.fillStyle = color
+      ctx.font = `${weight || 700} ${size}px "Segoe UI", Arial, sans-serif`
+      ctx.textAlign = align || 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(text, x, y)
+    }
+
+    function drawCabinet() {
+      const m = machine()
+      fillRounded(m.x, m.y, m.w, m.h, 14, '#151821')
+      ctx.strokeStyle = '#ffb03b'
+      ctx.lineWidth = 5
+      roundedRect(m.x + 2, m.y + 2, m.w - 4, m.h - 4, 13)
+      ctx.stroke()
+      fillRounded(m.x + 10, m.y + 10, m.w - 20, m.scoreH, 8, '#222733')
+      fillRounded(m.playX, m.y + m.scoreH + 16, m.playW, m.h - m.scoreH - 30, 8, '#08090d')
+
+      drawScorePanel(m)
+      drawBelt(m)
+      drawCannon(m)
+    }
+
+    function drawScorePanel(m) {
+      const scoreW = m.compact ? Math.min(118, m.playW * 0.48) : Math.min(260, m.playW * 0.48)
+      const titleW = m.compact ? Math.min(112, Math.max(88, m.playW - scoreW - 10)) : 138
+      const titleX = m.compact ? m.playX + scoreW + 8 : m.playX + m.playW - titleW - 22
+      fillRounded(m.playX, m.y + 18, scoreW, m.scoreH - 16, 6, '#07090b')
+      ctx.shadowColor = '#ff3333'
+      ctx.shadowBlur = 12
+      drawText(String(state.score).padStart(4, '0'), m.playX + scoreW / 2, m.y + m.scoreH / 2 + 5, Math.min(38, m.scoreH * 0.56), '#ff3535', 900)
+      ctx.shadowBlur = 0
+
+      fillRounded(titleX, m.y + 21, titleW, m.scoreH - 22, 6, '#2b303b')
+      drawText('掉下去', titleX + titleW / 2, m.y + m.scoreH / 2 + 5, m.compact ? 20 : 24, '#ffe0a3', 900)
+    }
+
+    function drawBelt(m) {
+      const beltY = m.beltY
+      fillRounded(m.playX - 12, beltY, m.playW + 24, m.beltH, 10, '#20242b')
+      fillRounded(m.playX, beltY + 18, m.playW, m.beltH - 36, 7, '#35323a')
+
+      const stripeW = 34
+      ctx.save()
+      ctx.beginPath()
+      roundedRect(m.playX, beltY + 18, m.playW, m.beltH - 36, 7)
+      ctx.clip()
+      for (let x = m.playX - stripeW * 2 + (state.beltOffset % stripeW); x < m.playX + m.playW + stripeW; x += stripeW) {
+        ctx.fillStyle = '#48434d'
+        ctx.beginPath()
+        ctx.moveTo(x, beltY + 18)
+        ctx.lineTo(x + 18, beltY + 18)
+        ctx.lineTo(x + stripeW, beltY + m.beltH - 18)
+        ctx.lineTo(x + stripeW - 18, beltY + m.beltH - 18)
+        ctx.closePath()
+        ctx.fill()
+      }
+      ctx.restore()
+
+      drawWheel(m.playX + 10, beltY + m.beltH / 2, 30)
+      drawWheel(m.playX + m.playW - 10, beltY + m.beltH / 2, 30)
+    }
+
+    function drawWheel(x, y, r) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate(state.beltOffset / 36)
+      ctx.fillStyle = '#12151b'
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#616978'
+      ctx.lineWidth = 4
+      for (let i = 0; i < 6; i += 1) {
+        ctx.rotate(Math.PI / 3)
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(r - 4, 0)
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
+    function drawCannon(m) {
+      const c = cannon()
+      const bodyX = m.x + 24
+      const bodyY = c.barrelY + 32
+      fillRounded(bodyX, bodyY, m.cannonW - 34, m.h - (bodyY - m.y) - 24, 18, '#f68a2f')
+      fillRounded(bodyX + 14, bodyY + 24, m.cannonW - 62, m.h - (bodyY - m.y) - 78, 14, '#ffb23e')
+
+      ctx.fillStyle = '#d34b30'
+      ctx.beginPath()
+      ctx.ellipse(c.barrelX - 26, c.barrelY + 4, 40, 56, -0.08, 0, Math.PI * 2)
+      ctx.fill()
+      fillRounded(c.barrelX - 8, c.barrelY - 28, 50, 44, 18, '#ffad3a')
+      fillRounded(c.barrelX + 20, c.barrelY - 17, 42, 23, 12, '#f05a34')
+      fillRounded(c.barrelX + 50, c.barrelY - 13, 22, 15, 8, '#101319')
+
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.arc(bodyX + 50, m.y + 64, 14, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#ffb03b'
+      ctx.lineWidth = 5
+      ctx.beginPath()
+      ctx.arc(bodyX + 50, m.y + 64, 24, 0, Math.PI * 2)
+      ctx.stroke()
+      drawText('球', bodyX + 50, m.y + 64, 13, '#bf3d2e', 900)
+
+      fillRounded(bodyX + 20, m.y + m.h - 70, m.cannonW - 62, 46, 10, '#c9422d')
+      drawText('FIRE', bodyX + (m.cannonW - 34) / 2, m.y + m.h - 47, 18, '#fff2c4', 900)
+    }
+
+    function drawMonster(target) {
+      const b = targetPosition(target)
+      const down = target.state === 'down'
+      const colors = [
+        ['#68d391', '#2f855a'],
+        ['#63b3ed', '#2b6cb0'],
+        ['#f6ad55', '#c05621']
+      ][target.hue]
+
+      ctx.save()
+      ctx.translate(b.x + b.w / 2, b.y + b.h)
+      if (down) {
+        ctx.rotate(-Math.PI / 2.6)
+        ctx.translate(-8, -10)
+      }
+
+      fillRounded(-22, -12, 44, 14, 5, '#504032')
+      fillRounded(-20, -64, 40, 48, 13, colors[0])
+      ctx.fillStyle = colors[1]
+      ctx.beginPath()
+      ctx.moveTo(-16, -64)
+      ctx.lineTo(-7, -78)
+      ctx.lineTo(1, -64)
+      ctx.fill()
+      ctx.beginPath()
+      ctx.moveTo(8, -64)
+      ctx.lineTo(18, -78)
+      ctx.lineTo(18, -60)
+      ctx.fill()
+
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.arc(-8, -47, 6, 0, Math.PI * 2)
+      ctx.arc(9, -47, 6, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#11151b'
+      ctx.beginPath()
+      ctx.arc(-7, -46, 2.5, 0, Math.PI * 2)
+      ctx.arc(10, -46, 2.5, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#11151b'
+      ctx.lineWidth = 3
+      ctx.beginPath()
+      ctx.moveTo(-9, -32)
+      ctx.quadraticCurveTo(0, -25, 11, -32)
+      ctx.stroke()
+
+      ctx.fillStyle = colors[1]
+      ctx.beginPath()
+      ctx.ellipse(-23, -42, 8, 13, -0.6, 0, Math.PI * 2)
+      ctx.ellipse(23, -42, 8, 13, 0.6, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
+
+    function drawBalls() {
+      state.balls.forEach((ball) => {
+        ctx.fillStyle = '#fdfdfb'
+        ctx.beginPath()
+        ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)'
+        ctx.lineWidth = 3
+        ctx.beginPath()
+        ctx.arc(ball.x - 3, ball.y - 3, ball.r * 0.45, 0, Math.PI * 2)
+        ctx.stroke()
+      })
+    }
+
+    function drawEffects() {
+      state.particles.forEach((particle) => {
+        const alpha = Math.max(0, particle.life / particle.max)
+        ctx.fillStyle = `rgba(255, 226, 94, ${alpha})`
+        ctx.beginPath()
+        ctx.arc(particle.x, particle.y, 3 + alpha * 2, 0, Math.PI * 2)
+        ctx.fill()
+      })
+
+      state.flashes.forEach((flash) => {
+        const alpha = Math.max(0, flash.life / flash.max)
+        ctx.fillStyle = flash.color
+        ctx.globalAlpha = alpha
+        ctx.beginPath()
+        ctx.arc(flash.x, flash.y, 18 * (1.2 - alpha), 0, Math.PI * 2)
+        ctx.fill()
+        ctx.globalAlpha = 1
+      })
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, state.width, state.height)
+      drawCabinet()
+      state.targets.forEach(drawMonster)
+      drawBalls()
+      drawEffects()
+    }
+
+    function loop(now) {
+      const dt = Math.min(0.033, (now - state.lastTime) / 1000)
+      state.lastTime = now
+      update(dt, now)
+      draw()
+      requestAnimationFrame(loop)
+    }
+
+    function bindInput() {
+      window.addEventListener('pointerdown', (event) => {
+        if (event.target.closest('.back')) {
+          return
+        }
+        fire()
+      })
+      window.addEventListener('keydown', (event) => {
+        if (event.code === 'Space' || event.code === 'Enter') {
+          event.preventDefault()
+          fire()
+        }
+      })
+    }
+
+    resize()
+    bindInput()
+    requestAnimationFrame(loop)
+    window.addEventListener('resize', resize)
+  </script>
+</body>
+</html>

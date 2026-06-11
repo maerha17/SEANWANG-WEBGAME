@@ -67,14 +67,14 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 330px), 1fr));
       gap: 18px;
       margin-top: 26px;
     }
 
     .game-card {
       display: grid;
-      grid-template-columns: 44% 1fr;
+      grid-template-columns: 1fr;
       min-height: 280px;
       overflow: hidden;
       border: 1px solid var(--line);
@@ -93,7 +93,7 @@
 
     .media {
       position: relative;
-      min-height: 260px;
+      min-height: 230px;
       background: #ede6d8;
     }
 
@@ -141,6 +141,129 @@
     .preview-2048 .t32 { color: #fff; background: #f67c5f; }
     .preview-2048 .t64 { color: #fff; background: #f65e3b; }
     .preview-2048 .t128 { color: #fff; background: #edcf72; font-size: clamp(16px, 2.4vw, 24px); }
+
+    .preview-fall-down {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 230px;
+      overflow: hidden;
+      background: radial-gradient(circle at 70% 0%, #343b48 0, #10131a 52%, #07080c 100%);
+    }
+
+    .preview-fall-down::before {
+      position: absolute;
+      inset: 16px;
+      content: "";
+      border: 4px solid #ffae3a;
+      border-radius: 8px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .fall-score {
+      position: absolute;
+      top: 30px;
+      right: 28px;
+      width: 112px;
+      height: 38px;
+      border-radius: 6px;
+      background: #050607;
+      color: #ff3434;
+      font-family: "Courier New", monospace;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 38px;
+      text-align: center;
+      text-shadow: 0 0 10px rgba(255, 50, 50, 0.8);
+    }
+
+    .fall-cannon {
+      position: absolute;
+      left: 28px;
+      bottom: 24px;
+      width: 86px;
+      height: 118px;
+      border-radius: 22px 22px 12px 12px;
+      background: linear-gradient(90deg, #e95732, #ffb13d 52%, #ed7930);
+      box-shadow: inset -10px 0 0 rgba(80, 24, 16, 0.16);
+    }
+
+    .fall-cannon::before {
+      position: absolute;
+      left: 28px;
+      top: -30px;
+      width: 34px;
+      height: 60px;
+      content: "";
+      border-radius: 16px;
+      background: #ffb13d;
+      transform: rotate(82deg);
+      transform-origin: bottom center;
+      box-shadow: 22px 0 0 -8px #f05b35;
+    }
+
+    .fall-cannon::after {
+      position: absolute;
+      left: 26px;
+      top: -54px;
+      width: 30px;
+      height: 30px;
+      content: "";
+      border: 5px solid #ffb13d;
+      border-radius: 999px;
+      background: #f8f8f3;
+    }
+
+    .fall-belt {
+      position: absolute;
+      left: 112px;
+      right: 24px;
+      bottom: 54px;
+      height: 66px;
+      overflow: hidden;
+      border-radius: 8px;
+      background:
+        repeating-linear-gradient(115deg, #4b4650 0 14px, #36323b 14px 28px),
+        #282c34;
+      box-shadow: 0 0 0 10px #1e222b;
+    }
+
+    .fall-monster {
+      position: absolute;
+      bottom: 104px;
+      width: 42px;
+      height: 58px;
+      border-radius: 12px 12px 10px 10px;
+      background: #68d391;
+      box-shadow: 0 12px 0 -6px #584230;
+    }
+
+    .fall-monster::before {
+      position: absolute;
+      left: 8px;
+      top: 16px;
+      width: 8px;
+      height: 8px;
+      content: "";
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 18px 0 0 #fff, 2px 2px 0 1px #11151b, 20px 2px 0 1px #11151b;
+    }
+
+    .fall-monster.one { left: 142px; background: #68d391; }
+    .fall-monster.two { left: 218px; background: #63b3ed; transform: rotate(-68deg); transform-origin: bottom center; }
+    .fall-monster.three { left: 292px; background: #f6ad55; }
+
+    .fall-ball {
+      position: absolute;
+      left: 126px;
+      bottom: 142px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 0 12px rgba(255, 255, 255, 0.75);
+    }
 
     .content {
       display: flex;
@@ -199,6 +322,10 @@
       background: #8b5a2b;
     }
 
+    .game-card:nth-child(3) .play {
+      background: #d44c32;
+    }
+
     footer {
       margin-top: 28px;
       color: var(--muted);
@@ -230,7 +357,8 @@
         grid-template-columns: 1fr;
       }
 
-      .media {
+      .media,
+      .preview-fall-down {
         min-height: 210px;
       }
 
@@ -301,6 +429,32 @@
             <span>2048</span>
             <span>滑块合成</span>
             <span>最高分</span>
+          </div>
+          <span class="play">开始游戏</span>
+        </div>
+      </a>
+
+      <a class="game-card" href="games/fall-down/">
+        <div class="media">
+          <div class="preview-fall-down" aria-hidden="true">
+            <div class="fall-score">0030</div>
+            <div class="fall-cannon"></div>
+            <div class="fall-belt"></div>
+            <div class="fall-monster one"></div>
+            <div class="fall-monster two"></div>
+            <div class="fall-monster three"></div>
+            <div class="fall-ball"></div>
+          </div>
+        </div>
+        <div class="content">
+          <div>
+            <h2>掉下去</h2>
+            <p>复刻摆摊射球机的核心手感：炮筒连发、皮带轮循环移动、怪兽被击倒后延迟自动扶起，分数一路累加。</p>
+          </div>
+          <div class="meta">
+            <span>射球</span>
+            <span>移动靶</span>
+            <span>无限游玩</span>
           </div>
           <span class="play">开始游戏</span>
         </div>
