@@ -71,12 +71,16 @@
     const POINTS = 10
     const TARGET_RESET_MS = 1200
     const BALL_SPEED = 860
+    const BELT_SPEED = 72
     const TARGETS = [
-      { col: 0.22, row: 0, hue: 0, phase: 0 },
-      { col: 0.50, row: 0, hue: 1, phase: 1.8 },
-      { col: 0.78, row: 0, hue: 2, phase: 3.4 },
-      { col: 0.36, row: 1, hue: 3, phase: 4.7 },
-      { col: 0.64, row: 1, hue: 4, phase: 5.6 }
+      { slot: 0, row: 0, hue: 0 },
+      { slot: 1, row: 0, hue: 1 },
+      { slot: 2, row: 0, hue: 2 },
+      { slot: 3, row: 0, hue: 3 },
+      { slot: 0, row: 1, hue: 4 },
+      { slot: 1, row: 1, hue: 0 },
+      { slot: 2, row: 1, hue: 1 },
+      { slot: 3, row: 1, hue: 2 }
     ]
 
     function resize() {
@@ -122,10 +126,9 @@
       TARGETS.forEach((target, index) => {
         state.targets.push({
           id: index,
-          col: target.col,
+          slot: target.slot,
           row: target.row,
           hue: target.hue,
-          phase: target.phase,
           state: 'standing',
           hitAt: 0
         })
@@ -146,12 +149,21 @@
 
     function targetBounds(target) {
       const m = layout()
-      const sway = Math.sin(state.beltOffset * 0.8 + target.phase) * m.w * 0.018
-      const rowY = target.row === 0 ? m.targetY + m.targetH * 0.18 : m.targetY + m.targetH * 0.53
+      const stageX = m.x + 18
+      const stageW = m.w - 36
+      const beltX = stageX + 12 * m.scale
+      const beltW = stageW - 24 * m.scale
+      const spacing = beltW / 3
+      const loopW = spacing * 4
+      const direction = target.row === 0 ? -1 : 1
+      const base = target.slot * spacing
+      const travel = (base + state.beltOffset * direction) % loopW
+      const wrapped = travel < 0 ? travel + loopW : travel
+      const rowY = target.row === 0 ? m.targetY + m.targetH * 0.2 : m.targetY + m.targetH * 0.55
       const w = 44 * m.scale
       const h = 58 * m.scale
       return {
-        x: m.x + m.w * target.col - w / 2 + sway,
+        x: beltX - spacing * 0.45 + wrapped - w / 2,
         y: rowY,
         w,
         h
@@ -204,7 +216,7 @@
 
     function update(dt, now) {
       const m = layout()
-      state.beltOffset += dt
+      state.beltOffset += BELT_SPEED * dt
       state.fireCooldown = Math.max(0, state.fireCooldown - dt)
 
       state.targets.forEach((target) => {
@@ -387,8 +399,8 @@
       strokeRounded(x + 2, y + 2, w - 4, h - 4, 9, '#f8f9ff', 2)
 
       drawLights(x + 14, y + 10, w - 28, h * 0.18)
-      drawShelf(x + 8, y + h * 0.39, w - 16, 12 * m.scale)
-      drawShelf(x + 8, y + h * 0.73, w - 16, 13 * m.scale)
+      drawConveyorRow(x + 8, y + h * 0.42, w - 16, 28 * m.scale, -1, m.scale)
+      drawConveyorRow(x + 8, y + h * 0.76, w - 16, 30 * m.scale, 1, m.scale)
       drawText('击倒小怪兽', x + w / 2, y + h * 0.1, Math.max(13, m.w * 0.035), '#cc3459', 900)
     }
 
@@ -404,13 +416,57 @@
       ctx.globalAlpha = 1
     }
 
-    function drawShelf(x, y, w, h) {
-      const gradient = ctx.createLinearGradient(x, y, x, y + h)
-      gradient.addColorStop(0, '#fff9a5')
-      gradient.addColorStop(1, '#d09b23')
-      fillRounded(x, y, w, h, h / 2, gradient)
-      ctx.fillStyle = 'rgba(96, 61, 24, 0.28)'
-      ctx.fillRect(x + 8, y + h - 3, w - 16, 3)
+    function drawConveyorRow(x, y, w, h, direction, scale) {
+      const wheelR = h * 0.68
+      fillRounded(x, y - h * 0.5, w, h, h * 0.42, '#24313f')
+      fillRounded(x + wheelR * 0.62, y - h * 0.32, w - wheelR * 1.24, h * 0.64, h * 0.24, '#3c4655')
+
+      ctx.save()
+      ctx.beginPath()
+      roundedRect(x + wheelR * 0.62, y - h * 0.32, w - wheelR * 1.24, h * 0.64, h * 0.24)
+      ctx.clip()
+      const stripeW = 22 * scale
+      const offset = (state.beltOffset * direction) % stripeW
+      for (let sx = x - stripeW * 2 + offset; sx < x + w + stripeW; sx += stripeW) {
+        ctx.fillStyle = '#556272'
+        ctx.beginPath()
+        ctx.moveTo(sx, y - h * 0.32)
+        ctx.lineTo(sx + stripeW * 0.48, y - h * 0.32)
+        ctx.lineTo(sx + stripeW, y + h * 0.32)
+        ctx.lineTo(sx + stripeW * 0.52, y + h * 0.32)
+        ctx.closePath()
+        ctx.fill()
+      }
+      ctx.restore()
+
+      drawPulley(x + wheelR * 0.66, y, wheelR, direction, scale)
+      drawPulley(x + w - wheelR * 0.66, y, wheelR, direction, scale)
+      ctx.fillStyle = '#7a5328'
+      fillRounded(x + w * 0.05, y + h * 0.2, w * 0.9, h * 0.18, h * 0.08, '#c39030')
+    }
+
+    function drawPulley(x, y, r, direction, scale) {
+      ctx.save()
+      ctx.translate(x, y)
+      ctx.rotate(state.beltOffset * direction * 0.055)
+      ctx.fillStyle = '#121922'
+      ctx.beginPath()
+      ctx.arc(0, 0, r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.strokeStyle = '#d8e8f5'
+      ctx.lineWidth = Math.max(2, 2.6 * scale)
+      for (let i = 0; i < 6; i += 1) {
+        ctx.rotate(Math.PI / 3)
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(r * 0.76, 0)
+        ctx.stroke()
+      }
+      ctx.fillStyle = '#263444'
+      ctx.beginPath()
+      ctx.arc(0, 0, r * 0.25, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
     }
 
     function drawControlDeck(m) {
