@@ -131,10 +131,7 @@
     }
 
     .board {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      grid-template-rows: repeat(4, 1fr);
-      gap: clamp(8px, 2.6vw, 14px);
+      position: relative;
       width: 100%;
       height: 100%;
       padding: clamp(8px, 2.6vw, 14px);
@@ -144,16 +141,35 @@
       user-select: none;
     }
 
+    .grid-cell,
     .tile {
+      position: absolute;
       display: flex;
       align-items: center;
       justify-content: center;
       border-radius: 6px;
+    }
+
+    .grid-cell {
       background: var(--empty);
+    }
+
+    .tile {
       color: #776e65;
       font-size: clamp(30px, 10vw, 56px);
       font-weight: 900;
       line-height: 1;
+      z-index: 2;
+      transition: transform 130ms ease-in-out;
+      will-change: transform;
+    }
+
+    .tile.new {
+      animation: pop-in 130ms ease-out;
+    }
+
+    .tile.merged {
+      animation: merge-pop 150ms ease-out 130ms;
     }
 
     .tile.v2 { background: #eee4da; }
@@ -168,6 +184,29 @@
     .tile.v1024 { color: #f9f6f2; background: #edc53f; font-size: clamp(22px, 7vw, 38px); }
     .tile.v2048 { color: #f9f6f2; background: #edc22e; font-size: clamp(22px, 7vw, 38px); }
     .tile.super { color: #f9f6f2; background: #3c3a32; font-size: clamp(20px, 6vw, 34px); }
+
+    @keyframes pop-in {
+      0% {
+        opacity: 0;
+        transform: scale(0.4);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes merge-pop {
+      0% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.14);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
 
     .overlay {
       position: absolute;
@@ -286,6 +325,7 @@
     const overlayElement = document.querySelector('#overlay')
     const overlayTitleElement = document.querySelector('#overlayTitle')
     const keepGoingButton = document.querySelector('#keepGoing')
+    let lastNewTile = null
     let touchStart = null
 
     function createEmptyGrid() {
@@ -311,11 +351,12 @@
     function addRandomTile() {
       const cells = emptyCells()
       if (!cells.length) {
-        return
+        return null
       }
 
       const cell = cells[Math.floor(Math.random() * cells.length)]
       state.grid[cell.row][cell.col] = Math.random() < 0.9 ? 2 : 4
+      return cell
     }
 
     function resetGame() {
@@ -325,7 +366,7 @@
       state.over = false
       state.keepPlaying = false
       addRandomTile()
-      addRandomTile()
+      lastNewTile = addRandomTile()
       saveGame()
       render()
     }
@@ -382,6 +423,72 @@
       return { line: result, gained }
     }
 
+    function traversalFor(index, direction) {
+      if (direction === 'left') {
+        return Array.from({ length: SIZE }, (_, col) => ({ row: index, col }))
+      }
+      if (direction === 'right') {
+        return Array.from({ length: SIZE }, (_, col) => ({ row: index, col: SIZE - 1 - col }))
+      }
+      if (direction === 'up') {
+        return Array.from({ length: SIZE }, (_, row) => ({ row, col: index }))
+      }
+      return Array.from({ length: SIZE }, (_, row) => ({ row: SIZE - 1 - row, col: index }))
+    }
+
+    function slideLine(entries, direction, index, next) {
+      const tiles = entries.filter((entry) => entry.value)
+      const animations = []
+      let gained = 0
+      let target = 0
+
+      for (let i = 0; i < tiles.length; i += 1) {
+        let value = tiles[i].value
+        let sources = [tiles[i]]
+        let merged = false
+
+        if (tiles[i + 1] && tiles[i + 1].value === value) {
+          value *= 2
+          gained += value
+          sources = [tiles[i], tiles[i + 1]]
+          merged = true
+          i += 1
+        }
+
+        let destination
+        if (direction === 'left') {
+          destination = { row: index, col: target }
+        } else if (direction === 'right') {
+          destination = { row: index, col: SIZE - 1 - target }
+        } else if (direction === 'up') {
+          destination = { row: target, col: index }
+        } else {
+          destination = { row: SIZE - 1 - target, col: index }
+        }
+
+        next[destination.row][destination.col] = value
+        const source = chooseAnimationSource(sources, destination)
+        animations.push({
+          fromRow: source.row,
+          fromCol: source.col,
+          toRow: destination.row,
+          toCol: destination.col,
+          merged
+        })
+        target += 1
+      }
+
+      return { gained, animations }
+    }
+
+    function chooseAnimationSource(sources, destination) {
+      return sources.reduce((best, source) => {
+        const bestDistance = Math.abs(best.row - destination.row) + Math.abs(best.col - destination.col)
+        const sourceDistance = Math.abs(source.row - destination.row) + Math.abs(source.col - destination.col)
+        return sourceDistance > bestDistance ? source : best
+      }, sources[0])
+    }
+
     function move(direction) {
       if (state.over || (state.won && !state.keepPlaying)) {
         return
@@ -390,30 +497,17 @@
       const before = JSON.stringify(state.grid)
       const next = createEmptyGrid()
       let gained = 0
+      let animations = []
 
       for (let i = 0; i < SIZE; i += 1) {
-        let line
-        if (direction === 'left') {
-          line = state.grid[i].slice()
-        } else if (direction === 'right') {
-          line = state.grid[i].slice().reverse()
-        } else if (direction === 'up') {
-          line = state.grid.map((row) => row[i])
-        } else {
-          line = state.grid.map((row) => row[i]).reverse()
-        }
-
-        const processed = processLine(line)
-        gained += processed.gained
-        const out = direction === 'right' || direction === 'down' ? processed.line.reverse() : processed.line
-
-        for (let j = 0; j < SIZE; j += 1) {
-          if (direction === 'left' || direction === 'right') {
-            next[i][j] = out[j]
-          } else {
-            next[j][i] = out[j]
-          }
-        }
+        const entries = traversalFor(i, direction).map(({ row, col }) => ({
+          row,
+          col,
+          value: state.grid[row][col]
+        }))
+        const result = slideLine(entries, direction, i, next)
+        gained += result.gained
+        animations = animations.concat(result.animations)
       }
 
       if (JSON.stringify(next) === before) {
@@ -423,10 +517,10 @@
       state.grid = next
       state.score += gained
       state.best = Math.max(state.best, state.score)
-      addRandomTile()
+      lastNewTile = addRandomTile()
       updateStatus()
       saveGame()
-      render()
+      render(animations)
     }
 
     function updateStatus() {
@@ -454,17 +548,86 @@
       return false
     }
 
-    function render() {
+    function getBoardGeometry() {
+      const size = boardElement.clientWidth
+      const styles = getComputedStyle(boardElement)
+      const padding = parseFloat(styles.paddingLeft)
+      const gap = Math.max(8, Math.min(14, window.innerWidth * 0.026))
+      const cell = (size - padding * 2 - gap * (SIZE - 1)) / SIZE
+      return { padding, gap, cell }
+    }
+
+    function cellPosition(row, col, geometry) {
+      return {
+        x: geometry.padding + col * (geometry.cell + geometry.gap),
+        y: geometry.padding + row * (geometry.cell + geometry.gap)
+      }
+    }
+
+    function render(animations) {
+      const animationMap = new Map()
+      ;(animations || []).forEach((animation) => {
+        animationMap.set(`${animation.toRow}:${animation.toCol}`, animation)
+      })
+
       boardElement.innerHTML = ''
-      state.grid.flat().forEach((value) => {
+      const geometry = getBoardGeometry()
+
+      for (let row = 0; row < SIZE; row += 1) {
+        for (let col = 0; col < SIZE; col += 1) {
+          const position = cellPosition(row, col, geometry)
+          const cell = document.createElement('div')
+          cell.className = 'grid-cell'
+          cell.style.left = `${position.x}px`
+          cell.style.top = `${position.y}px`
+          cell.style.width = `${geometry.cell}px`
+          cell.style.height = `${geometry.cell}px`
+          boardElement.appendChild(cell)
+        }
+      }
+
+      state.grid.forEach((rowValues, row) => {
+        rowValues.forEach((value, col) => {
+          if (!value) {
+            return
+          }
+
+          const position = cellPosition(row, col, geometry)
+          const animation = animationMap.get(`${row}:${col}`)
         const tile = document.createElement('div')
         tile.className = value ? `tile v${value}` : 'tile'
         if (value > 2048) {
           tile.className = 'tile super'
         }
+          if (lastNewTile && lastNewTile.row === row && lastNewTile.col === col && !animation) {
+            tile.classList.add('new')
+          }
+          if (animation && animation.merged) {
+            tile.classList.add('merged')
+          }
+          tile.style.left = `${position.x}px`
+          tile.style.top = `${position.y}px`
+          tile.style.width = `${geometry.cell}px`
+          tile.style.height = `${geometry.cell}px`
+
+          if (animation) {
+            const from = cellPosition(animation.fromRow, animation.fromCol, geometry)
+            tile.style.transition = 'none'
+            tile.style.transform = `translate(${from.x - position.x}px, ${from.y - position.y}px)`
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                tile.style.transition = ''
+                tile.style.transform = 'translate(0, 0)'
+              })
+            })
+          }
+
         tile.textContent = value ? String(value) : ''
         boardElement.appendChild(tile)
       })
+      })
+
+      lastNewTile = null
 
       scoreElement.textContent = String(state.score)
       bestElement.textContent = String(state.best)
