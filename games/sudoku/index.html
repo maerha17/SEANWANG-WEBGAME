@@ -413,7 +413,7 @@
   </style>
 </head>
 <body>
-  <a class="back" href="../../">返回</a>
+  <a class="back" href="../../" data-confirm-back>返回</a>
   <main class="app">
     <section class="top" aria-label="状态">
       <div class="metric">
@@ -1188,6 +1188,14 @@
     document.querySelector('#new').addEventListener('click', () => {
       openConfirm('开始新局？', '会丢失当前进度，并重新生成本难度题目。', '确认新局', () => {
         resetGame(state.difficulty)
+      })
+    })
+
+    document.querySelector('[data-confirm-back]').addEventListener('click', (event) => {
+      event.preventDefault()
+      const href = event.currentTarget.getAttribute('href')
+      openConfirm('返回主页？', '会离开当前页面，当前数独进度已保存在本机。', '确认返回', () => {
+        window.location.href = href
       })
     })
 
