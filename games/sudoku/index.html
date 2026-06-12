@@ -46,6 +46,24 @@
       padding: 18px 16px 28px;
     }
 
+    .back {
+      position: fixed;
+      left: 12px;
+      top: 12px;
+      z-index: 5;
+      display: inline-flex;
+      align-items: center;
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 6px;
+      color: var(--ink);
+      background: rgba(255, 253, 248, 0.92);
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 6px 18px rgba(31, 41, 51, 0.12);
+    }
+
     .brand {
       display: flex;
       align-items: center;
@@ -395,6 +413,7 @@
   </style>
 </head>
 <body>
+  <a class="back" href="../../">返回</a>
   <main class="app">
     <section class="top" aria-label="状态">
       <div class="metric">
