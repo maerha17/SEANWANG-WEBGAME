@@ -179,6 +179,7 @@
           inGate: -1,
           liftGate: -1,
           liftFailed: false,
+          resetOnNextTop: false,
           readyForStumble: true
         })
       })
@@ -201,8 +202,8 @@
 
     function targetBounds(target) {
       const pose = targetPose(target)
-      const w = 32 * pose.scale
-      const h = 46 * pose.scale
+      const w = 40 * pose.scale
+      const h = 34 * pose.scale
       const trayOffset = h * 0.12
       return {
         x: pose.x - w / 2,
@@ -312,8 +313,8 @@
         index,
         x,
         y: metrics.topY - 2 * metrics.m.scale,
-        w: 34 * metrics.m.scale,
-        h: 34 * metrics.m.scale
+        w: 27 * metrics.m.scale,
+        h: 27 * metrics.m.scale
       }))
     }
 
@@ -459,17 +460,30 @@
       state.targets.forEach((target) => {
         const pose = targetPose(target)
         if (target.state === 'down' && pose.layer !== 'top') {
-          target.state = 'standing'
-          target.scorer = -1
           target.inGate = -1
           target.liftGate = -1
           target.liftFailed = false
+          target.resetOnNextTop = true
           target.readyForStumble = true
-          return
         }
 
         if (pose.layer !== 'top') {
           target.readyForStumble = true
+        }
+
+        if (pose.layer === 'top' && target.resetOnNextTop) {
+          target.resetOnNextTop = false
+          target.scorer = -1
+          target.inGate = -1
+          target.liftGate = -1
+          target.liftFailed = false
+          if (Math.random() < 0.99) {
+            target.state = 'standing'
+            target.readyForStumble = false
+          } else {
+            target.state = 'down'
+            target.hitAt = now
+          }
         }
 
         if (target.state === 'standing' && pose.layer === 'top' && target.readyForStumble) {
@@ -675,12 +689,14 @@
 
     function drawScoreBoard(x, y, w, h, index, scale) {
       ctx.save()
-      fillRounded(x, y, w, h, 5 * scale, 'rgba(30, 36, 50, 0.88)')
-      strokeRounded(x + 1, y + 1, w - 2, h - 2, 4 * scale, 'rgba(214, 231, 244, 0.65)', 1 * scale)
-      fillRounded(x + w * 0.09, y + h * 0.2, w * 0.82, h * 0.58, 3 * scale, '#100d13')
-      ctx.shadowColor = 'rgba(255, 58, 72, 0.62)'
-      ctx.shadowBlur = 5
-      drawText(String(state.scores[index]).padStart(3, '0'), x + w * 0.5, y + h * 0.49, Math.max(10, h * 0.34), '#ff394b', 900)
+      fillRounded(x - 4 * scale, y - 4 * scale, w + 8 * scale, h + 8 * scale, 9 * scale, '#111722')
+      strokeRounded(x - 4 * scale, y - 4 * scale, w + 8 * scale, h + 8 * scale, 9 * scale, '#f0d3a7', 2.2 * scale)
+      fillRounded(x, y, w, h, 7 * scale, '#33252b')
+      strokeRounded(x + 1, y + 1, w - 2, h - 2, 6 * scale, '#ffdbe2', 1.3 * scale)
+      fillRounded(x + w * 0.08, y + h * 0.18, w * 0.84, h * 0.58, 4 * scale, '#17090d')
+      ctx.shadowColor = '#ff2d38'
+      ctx.shadowBlur = 10
+      drawText(String(state.scores[index]).padStart(3, '0'), x + w * 0.5, y + h * 0.47, Math.max(15, h * 0.36), '#ff3038', 900)
       ctx.shadowBlur = 0
       ctx.restore()
     }
@@ -717,8 +733,8 @@
 
     function drawHeaderScoreBoards(m, y) {
       cannons().forEach((c, index) => {
-        const w = 48 * m.scale
-        const h = 20 * m.scale
+        const w = 98 * m.scale
+        const h = 40 * m.scale
         drawScoreBoard(c.centerX - w / 2, y, w, h, index, m.scale)
       })
     }
@@ -788,24 +804,29 @@
     function drawScoreGates(m) {
       scoreGates().forEach((gate) => {
         ctx.save()
-        ctx.shadowColor = '#ff6a7f'
-        ctx.shadowBlur = 12
-        ctx.fillStyle = '#c64b46'
+        const steel = ctx.createLinearGradient(gate.x - gate.w * 0.5, gate.y - gate.h * 0.72, gate.x + gate.w * 0.5, gate.y + gate.h * 0.15)
+        steel.addColorStop(0, '#eef3f4')
+        steel.addColorStop(0.28, '#9fa9ad')
+        steel.addColorStop(0.55, '#f8fbfb')
+        steel.addColorStop(1, '#6f7a7f')
+        ctx.fillStyle = steel
         ctx.beginPath()
         ctx.moveTo(gate.x, gate.y - gate.h * 0.72)
         ctx.lineTo(gate.x - gate.w * 0.5, gate.y + gate.h * 0.12)
         ctx.lineTo(gate.x + gate.w * 0.5, gate.y + gate.h * 0.12)
         ctx.closePath()
         ctx.fill()
-        ctx.shadowBlur = 0
-        ctx.fillStyle = '#fff1c6'
+        ctx.strokeStyle = '#5c666b'
+        ctx.lineWidth = Math.max(1, 1.8 * m.scale)
+        ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'
         ctx.beginPath()
-        ctx.moveTo(gate.x, gate.y - gate.h * 0.47)
-        ctx.lineTo(gate.x - gate.w * 0.23, gate.y)
-        ctx.lineTo(gate.x + gate.w * 0.23, gate.y)
+        ctx.moveTo(gate.x - gate.w * 0.1, gate.y - gate.h * 0.5)
+        ctx.lineTo(gate.x - gate.w * 0.28, gate.y - gate.h * 0.03)
+        ctx.lineTo(gate.x + gate.w * 0.08, gate.y - gate.h * 0.03)
         ctx.closePath()
         ctx.fill()
-        fillRounded(gate.x - gate.w * 0.55, gate.y + gate.h * 0.1, gate.w * 1.1, gate.h * 0.18, 3 * m.scale, '#583233')
+        fillRounded(gate.x - gate.w * 0.55, gate.y + gate.h * 0.1, gate.w * 1.1, gate.h * 0.16, 3 * m.scale, '#7d8588')
         ctx.restore()
       })
     }
@@ -1013,38 +1034,37 @@
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        ctx.translate(b.w * 0.28 * t, -b.h * 0.12 * t)
-        ctx.rotate(Math.PI * 0.64 * t)
-        ctx.scale(1, 1 - 0.05 * t)
+        ctx.translate(b.w * 0.18 * t, -b.h * 0.04 * t)
+        ctx.rotate(Math.PI * 0.52 * t)
       }
 
       ctx.fillStyle = colors[1]
       ctx.beginPath()
-      ctx.moveTo(b.w * 0.22, -b.h * 0.36)
-      ctx.quadraticCurveTo(b.w * 0.7, -b.h * 0.55, b.w * 0.42, -b.h * 0.13)
-      ctx.quadraticCurveTo(b.w * 0.2, -b.h * 0.2, b.w * 0.08, -b.h * 0.15)
+      ctx.moveTo(b.w * 0.22, -b.h * 0.34)
+      ctx.quadraticCurveTo(b.w * 0.68, -b.h * 0.44, b.w * 0.48, -b.h * 0.1)
+      ctx.quadraticCurveTo(b.w * 0.24, -b.h * 0.19, b.w * 0.08, -b.h * 0.12)
       ctx.fill()
 
-      fillRounded(-b.w * 0.3, -b.h * 0.44, b.w * 0.58, b.h * 0.36, 16, colors[0])
+      fillRounded(-b.w * 0.34, -b.h * 0.42, b.w * 0.68, b.h * 0.34, 14, colors[0])
 
       ctx.fillStyle = colors[2]
       ;[-0.22, -0.04, 0.14].forEach((x) => {
         ctx.beginPath()
-        ctx.moveTo(b.w * x, -b.h * 0.45)
-        ctx.lineTo(b.w * (x + 0.08), -b.h * 0.62)
-        ctx.lineTo(b.w * (x + 0.16), -b.h * 0.45)
+        ctx.moveTo(b.w * x, -b.h * 0.43)
+        ctx.lineTo(b.w * (x + 0.08), -b.h * 0.57)
+        ctx.lineTo(b.w * (x + 0.16), -b.h * 0.43)
         ctx.fill()
       })
 
       ctx.fillStyle = colors[0]
       ctx.beginPath()
-      ctx.ellipse(0, -b.h * 0.66, b.w * 0.42, b.h * 0.36, 0, 0, Math.PI * 2)
+      ctx.ellipse(0, -b.h * 0.62, b.w * 0.45, b.h * 0.32, 0, 0, Math.PI * 2)
       ctx.fill()
 
       ctx.fillStyle = colors[2]
       ;[0, 1, 2, 3].forEach((i) => {
-        const y = -0.8 - i * 0.1
-        const size = 0.12 - i * 0.01
+        const y = -0.74 - i * 0.09
+        const size = 0.11 - i * 0.009
         ctx.beginPath()
         ctx.moveTo(0, b.h * (y - size * 1.35))
         ctx.lineTo(-b.w * size, b.h * y)
@@ -1055,24 +1075,24 @@
 
       ctx.fillStyle = colors[1]
       ctx.beginPath()
-      ctx.ellipse(-b.w * 0.12, -b.h * 0.37, b.w * 0.09, b.h * 0.08, 0, 0, Math.PI * 2)
-      ctx.ellipse(b.w * 0.16, -b.h * 0.37, b.w * 0.09, b.h * 0.08, 0, 0, Math.PI * 2)
+      ctx.ellipse(-b.w * 0.13, -b.h * 0.34, b.w * 0.085, b.h * 0.075, 0, 0, Math.PI * 2)
+      ctx.ellipse(b.w * 0.16, -b.h * 0.34, b.w * 0.085, b.h * 0.075, 0, 0, Math.PI * 2)
       ctx.fill()
 
       ctx.fillStyle = '#fff'
       ctx.beginPath()
-      ctx.arc(-b.w * 0.14, -b.h * 0.68, b.w * 0.12, 0, Math.PI * 2)
-      ctx.arc(b.w * 0.17, -b.h * 0.68, b.w * 0.12, 0, Math.PI * 2)
+      ctx.arc(-b.w * 0.14, -b.h * 0.63, b.w * 0.115, 0, Math.PI * 2)
+      ctx.arc(b.w * 0.17, -b.h * 0.63, b.w * 0.115, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#101520'
       ctx.beginPath()
-      ctx.arc(-b.w * 0.11, -b.h * 0.67, b.w * 0.045, 0, Math.PI * 2)
-      ctx.arc(b.w * 0.2, -b.h * 0.67, b.w * 0.045, 0, Math.PI * 2)
+      ctx.arc(-b.w * 0.11, -b.h * 0.62, b.w * 0.04, 0, Math.PI * 2)
+      ctx.arc(b.w * 0.2, -b.h * 0.62, b.w * 0.04, 0, Math.PI * 2)
       ctx.fill()
 
       ctx.fillStyle = '#101520'
       ctx.beginPath()
-      ctx.ellipse(b.w * 0.02, -b.h * 0.54, b.w * 0.25, b.h * 0.075, 0, 0, Math.PI * 2)
+      ctx.ellipse(b.w * 0.02, -b.h * 0.5, b.w * 0.24, b.h * 0.07, 0, 0, Math.PI * 2)
       ctx.fill()
       ctx.fillStyle = '#fff7dd'
       for (let i = 0; i < 5; i += 1) {
@@ -1151,7 +1171,6 @@
       drawBackground()
       drawCabinet()
       drawTargetsAboveBelts()
-      drawScoreGates(layout())
       drawBalls()
       drawEffects()
     }
