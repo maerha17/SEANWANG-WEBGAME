@@ -1033,10 +1033,8 @@
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        drawFallenMonster(b, colors, t)
-        ctx.globalAlpha = 1
-        ctx.restore()
-        return
+        ctx.translate(-b.w * 0.28 * t, -b.h * 0.06 * t)
+        ctx.rotate(Math.PI * 0.52 * t)
       }
 
       ctx.fillStyle = colors[1]
@@ -1091,86 +1089,37 @@
       ctx.arc(b.w * 0.2, -b.h * 0.62, b.w * 0.04, 0, Math.PI * 2)
       ctx.fill()
 
-      ctx.fillStyle = '#101520'
+      ctx.fillStyle = '#f7d3b1'
       ctx.beginPath()
-      ctx.ellipse(b.w * 0.02, -b.h * 0.5, b.w * 0.24, b.h * 0.07, 0, 0, Math.PI * 2)
+      ctx.ellipse(b.w * 0.02, -b.h * 0.5, b.w * 0.27, b.h * 0.085, 0, 0, Math.PI * 2)
       ctx.fill()
-      ctx.fillStyle = '#fff7dd'
-      for (let i = 0; i < 5; i += 1) {
-        const tx = b.w * (-0.15 + i * 0.075)
+      ctx.strokeStyle = '#4d2a24'
+      ctx.lineWidth = Math.max(1.1, b.w * 0.025)
+      ctx.beginPath()
+      ctx.moveTo(-b.w * 0.22, -b.h * 0.51)
+      ctx.quadraticCurveTo(0, -b.h * 0.4, b.w * 0.26, -b.h * 0.51)
+      ctx.stroke()
+      ctx.fillStyle = '#fffaf0'
+      for (let i = 0; i < 7; i += 1) {
+        const tx = b.w * (-0.21 + i * 0.07)
         ctx.beginPath()
-        ctx.moveTo(tx, -b.h * 0.56)
-        ctx.lineTo(tx + b.w * 0.035, -b.h * 0.49)
-        ctx.lineTo(tx + b.w * 0.07, -b.h * 0.56)
+        ctx.moveTo(tx, -b.h * 0.53)
+        ctx.lineTo(tx + b.w * 0.03, -b.h * 0.47)
+        ctx.lineTo(tx + b.w * 0.06, -b.h * 0.53)
         ctx.closePath()
         ctx.fill()
       }
-      ctx.strokeStyle = '#101520'
-      ctx.lineWidth = Math.max(1.2, b.w * 0.035)
-      ctx.beginPath()
-      ctx.moveTo(-b.w * 0.18, -b.h * 0.56)
-      ctx.quadraticCurveTo(0, -b.h * 0.46, b.w * 0.22, -b.h * 0.56)
-      ctx.stroke()
-      ctx.globalAlpha = 1
-      ctx.restore()
-    }
-
-    function drawFallenMonster(b, colors, t) {
-      const k = Math.max(0, Math.min(1, t))
-      const topLift = b.h * (0.42 - 0.08 * k)
-      const leftBottom = -b.w * 0.42
-      const rightBottom = b.w * (0.42 + 0.18 * k)
-      const leftTop = -b.w * (0.2 - 0.08 * k)
-      const rightTop = b.w * (0.5 + 0.38 * k)
-      const topY = -topLift
-      const bottomY = -b.h * 0.08
-
-      ctx.fillStyle = colors[1]
-      ctx.beginPath()
-      ctx.moveTo(leftBottom, bottomY)
-      ctx.lineTo(rightBottom, bottomY)
-      ctx.lineTo(rightTop, topY)
-      ctx.lineTo(leftTop, topY)
-      ctx.closePath()
-      ctx.fill()
-
-      ctx.fillStyle = colors[0]
-      ctx.beginPath()
-      ctx.moveTo(leftBottom + b.w * 0.1, bottomY - b.h * 0.04)
-      ctx.lineTo(rightBottom - b.w * 0.08, bottomY - b.h * 0.04)
-      ctx.lineTo(rightTop - b.w * 0.12, topY + b.h * 0.07)
-      ctx.lineTo(leftTop + b.w * 0.1, topY + b.h * 0.07)
-      ctx.closePath()
-      ctx.fill()
-
-      ctx.fillStyle = colors[2]
-      ;[0.1, 0.28, 0.46].forEach((p) => {
-        const x = leftTop + (rightTop - leftTop) * p
+      for (let i = 0; i < 6; i += 1) {
+        const tx = b.w * (-0.17 + i * 0.07)
         ctx.beginPath()
-        ctx.moveTo(x, topY - b.h * 0.11)
-        ctx.lineTo(x - b.w * 0.055, topY + b.h * 0.02)
-        ctx.lineTo(x + b.w * 0.055, topY + b.h * 0.02)
+        ctx.moveTo(tx, -b.h * 0.45)
+        ctx.lineTo(tx + b.w * 0.03, -b.h * 0.51)
+        ctx.lineTo(tx + b.w * 0.06, -b.h * 0.45)
         ctx.closePath()
         ctx.fill()
-      })
-
-      ctx.fillStyle = '#fff'
-      ctx.beginPath()
-      ctx.ellipse(leftTop + b.w * 0.32, topY + b.h * 0.16, b.w * 0.1, b.h * 0.07, -0.12, 0, Math.PI * 2)
-      ctx.ellipse(leftTop + b.w * 0.58, topY + b.h * 0.16, b.w * 0.1, b.h * 0.07, -0.12, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.fillStyle = '#101520'
-      ctx.beginPath()
-      ctx.arc(leftTop + b.w * 0.34, topY + b.h * 0.16, b.w * 0.035, 0, Math.PI * 2)
-      ctx.arc(leftTop + b.w * 0.6, topY + b.h * 0.16, b.w * 0.035, 0, Math.PI * 2)
-      ctx.fill()
-
-      ctx.strokeStyle = '#101520'
-      ctx.lineWidth = Math.max(1.2, b.w * 0.035)
-      ctx.beginPath()
-      ctx.moveTo(leftTop + b.w * 0.34, topY + b.h * 0.3)
-      ctx.quadraticCurveTo(leftTop + b.w * 0.5, topY + b.h * 0.38, leftTop + b.w * 0.66, topY + b.h * 0.28)
-      ctx.stroke()
+      }
+      ctx.globalAlpha = 1
+      ctx.restore()
     }
 
     function drawBalls() {
