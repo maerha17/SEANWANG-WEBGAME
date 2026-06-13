@@ -1034,8 +1034,11 @@
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        ctx.translate(-b.w * 0.24 * t, -b.h * 0.04 * t)
-        ctx.rotate(Math.PI * 0.52 * t)
+        const flatten = 1 - t * 0.72
+        const lean = -0.78 * t
+        const stretch = 1 + t * 0.16
+        ctx.translate(b.w * 0.04 * t, -b.h * 0.01 * t)
+        ctx.transform(stretch, 0.03 * t, lean, flatten, 0, 0)
       }
 
       ctx.fillStyle = colors[1]
