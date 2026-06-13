@@ -1034,8 +1034,8 @@
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        ctx.translate(b.w * 0.28 * t, -b.h * 0.06 * t)
-        ctx.rotate(-Math.PI * 0.52 * t)
+        ctx.translate(-b.w * 0.24 * t, -b.h * 0.04 * t)
+        ctx.rotate(Math.PI * 0.52 * t)
       }
 
       ctx.fillStyle = colors[1]
@@ -1090,32 +1090,20 @@
       ctx.arc(b.w * 0.2, -b.h * 0.62, b.w * 0.04, 0, Math.PI * 2)
       ctx.fill()
 
-      ctx.fillStyle = '#f7d3b1'
+      ctx.strokeStyle = '#3b231f'
+      ctx.lineWidth = Math.max(1.1, b.w * 0.022)
       ctx.beginPath()
-      ctx.ellipse(b.w * 0.02, -b.h * 0.5, b.w * 0.27, b.h * 0.085, 0, 0, Math.PI * 2)
-      ctx.fill()
-      ctx.strokeStyle = '#4d2a24'
-      ctx.lineWidth = Math.max(1.1, b.w * 0.025)
-      ctx.beginPath()
-      ctx.moveTo(-b.w * 0.22, -b.h * 0.51)
-      ctx.quadraticCurveTo(0, -b.h * 0.4, b.w * 0.26, -b.h * 0.51)
+      ctx.moveTo(-b.w * 0.25, -b.h * 0.5)
+      ctx.quadraticCurveTo(0, -b.h * 0.39, b.w * 0.28, -b.h * 0.5)
       ctx.stroke()
       ctx.fillStyle = '#fffaf0'
-      for (let i = 0; i < 7; i += 1) {
-        const tx = b.w * (-0.21 + i * 0.07)
+      for (let i = 0; i < 8; i += 1) {
+        const tx = b.w * (-0.24 + i * 0.068)
+        const topY = -b.h * (0.5 - Math.abs(i - 3.5) * 0.008)
         ctx.beginPath()
-        ctx.moveTo(tx, -b.h * 0.53)
-        ctx.lineTo(tx + b.w * 0.03, -b.h * 0.47)
-        ctx.lineTo(tx + b.w * 0.06, -b.h * 0.53)
-        ctx.closePath()
-        ctx.fill()
-      }
-      for (let i = 0; i < 6; i += 1) {
-        const tx = b.w * (-0.17 + i * 0.07)
-        ctx.beginPath()
-        ctx.moveTo(tx, -b.h * 0.45)
-        ctx.lineTo(tx + b.w * 0.03, -b.h * 0.51)
-        ctx.lineTo(tx + b.w * 0.06, -b.h * 0.45)
+        ctx.moveTo(tx, topY)
+        ctx.lineTo(tx + b.w * 0.028, -b.h * 0.44)
+        ctx.lineTo(tx + b.w * 0.056, topY)
         ctx.closePath()
         ctx.fill()
       }
