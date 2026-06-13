@@ -1027,15 +1027,16 @@
 
       fillRounded(-b.w * 0.5, -b.h * 0.06, b.w, b.h * 0.14, 5, '#744c2b')
 
-      ctx.save()
       if (down) {
         const gate = target.liftGate >= 0 ? scoreGate(target.liftGate) : null
         const lift = gate ? Math.max(0, gateProgress(target, gate)) : 0
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        ctx.translate(b.w * 0.18 * t, -b.h * 0.04 * t)
-        ctx.rotate(Math.PI * 0.52 * t)
+        drawFallenMonster(b, colors, t)
+        ctx.globalAlpha = 1
+        ctx.restore()
+        return
       }
 
       ctx.fillStyle = colors[1]
@@ -1110,9 +1111,66 @@
       ctx.moveTo(-b.w * 0.18, -b.h * 0.56)
       ctx.quadraticCurveTo(0, -b.h * 0.46, b.w * 0.22, -b.h * 0.56)
       ctx.stroke()
-      ctx.restore()
       ctx.globalAlpha = 1
       ctx.restore()
+    }
+
+    function drawFallenMonster(b, colors, t) {
+      const k = Math.max(0, Math.min(1, t))
+      const topLift = b.h * (0.42 - 0.08 * k)
+      const leftBottom = -b.w * 0.42
+      const rightBottom = b.w * (0.42 + 0.18 * k)
+      const leftTop = -b.w * (0.2 - 0.08 * k)
+      const rightTop = b.w * (0.5 + 0.38 * k)
+      const topY = -topLift
+      const bottomY = -b.h * 0.08
+
+      ctx.fillStyle = colors[1]
+      ctx.beginPath()
+      ctx.moveTo(leftBottom, bottomY)
+      ctx.lineTo(rightBottom, bottomY)
+      ctx.lineTo(rightTop, topY)
+      ctx.lineTo(leftTop, topY)
+      ctx.closePath()
+      ctx.fill()
+
+      ctx.fillStyle = colors[0]
+      ctx.beginPath()
+      ctx.moveTo(leftBottom + b.w * 0.1, bottomY - b.h * 0.04)
+      ctx.lineTo(rightBottom - b.w * 0.08, bottomY - b.h * 0.04)
+      ctx.lineTo(rightTop - b.w * 0.12, topY + b.h * 0.07)
+      ctx.lineTo(leftTop + b.w * 0.1, topY + b.h * 0.07)
+      ctx.closePath()
+      ctx.fill()
+
+      ctx.fillStyle = colors[2]
+      ;[0.1, 0.28, 0.46].forEach((p) => {
+        const x = leftTop + (rightTop - leftTop) * p
+        ctx.beginPath()
+        ctx.moveTo(x, topY - b.h * 0.11)
+        ctx.lineTo(x - b.w * 0.055, topY + b.h * 0.02)
+        ctx.lineTo(x + b.w * 0.055, topY + b.h * 0.02)
+        ctx.closePath()
+        ctx.fill()
+      })
+
+      ctx.fillStyle = '#fff'
+      ctx.beginPath()
+      ctx.ellipse(leftTop + b.w * 0.32, topY + b.h * 0.16, b.w * 0.1, b.h * 0.07, -0.12, 0, Math.PI * 2)
+      ctx.ellipse(leftTop + b.w * 0.58, topY + b.h * 0.16, b.w * 0.1, b.h * 0.07, -0.12, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#101520'
+      ctx.beginPath()
+      ctx.arc(leftTop + b.w * 0.34, topY + b.h * 0.16, b.w * 0.035, 0, Math.PI * 2)
+      ctx.arc(leftTop + b.w * 0.6, topY + b.h * 0.16, b.w * 0.035, 0, Math.PI * 2)
+      ctx.fill()
+
+      ctx.strokeStyle = '#101520'
+      ctx.lineWidth = Math.max(1.2, b.w * 0.035)
+      ctx.beginPath()
+      ctx.moveTo(leftTop + b.w * 0.34, topY + b.h * 0.3)
+      ctx.quadraticCurveTo(leftTop + b.w * 0.5, topY + b.h * 0.38, leftTop + b.w * 0.66, topY + b.h * 0.28)
+      ctx.stroke()
     }
 
     function drawBalls() {
