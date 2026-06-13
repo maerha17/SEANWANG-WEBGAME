@@ -1027,14 +1027,15 @@
 
       fillRounded(-b.w * 0.5, -b.h * 0.06, b.w, b.h * 0.14, 5, '#744c2b')
 
+      ctx.save()
       if (down) {
         const gate = target.liftGate >= 0 ? scoreGate(target.liftGate) : null
         const lift = gate ? Math.max(0, gateProgress(target, gate)) : 0
         const fall = target.liftFailed ? 1 : 1 - lift
         const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
         const t = gate ? fall : hitFall
-        ctx.translate(-b.w * 0.28 * t, -b.h * 0.06 * t)
-        ctx.rotate(Math.PI * 0.52 * t)
+        ctx.translate(b.w * 0.28 * t, -b.h * 0.06 * t)
+        ctx.rotate(-Math.PI * 0.52 * t)
       }
 
       ctx.fillStyle = colors[1]
@@ -1118,6 +1119,14 @@
         ctx.closePath()
         ctx.fill()
       }
+      if (down) {
+        ctx.restore()
+        fillRounded(-b.w * 0.5, -b.h * 0.06, b.w, b.h * 0.14, 5, '#744c2b')
+        ctx.globalAlpha = 1
+        ctx.restore()
+        return
+      }
+      ctx.restore()
       ctx.globalAlpha = 1
       ctx.restore()
     }
