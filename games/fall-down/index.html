@@ -119,7 +119,8 @@
     }
 
     const POINTS = 10
-    const BALL_SPEED = 1380
+    const BALL_SPEED = 1620
+    const BOUNCE_DAMPING = 0.5
     const BELT_SPEED = 72
     const GRAVITY = 1180
     const STUMBLE_CHANCE_PER_PASS = 0.005
@@ -327,9 +328,10 @@
       if (pose.layer !== 'top') {
         return -1
       }
-      const start = gate.x - gate.w * 1.15
+      const b = targetBounds(target)
+      const start = gate.x - gate.w * 0.55 - b.w * 0.5
       const peak = gate.x
-      const exit = gate.x + gate.w * 0.7
+      const exit = gate.x + gate.w * 0.7 + b.w * 0.2
       if (pose.x < start || pose.x > exit) {
         return -1
       }
@@ -527,22 +529,22 @@
 
         if (ball.x - ball.r < wallLeft) {
           ball.x = wallLeft + ball.r
-          ball.vx = Math.abs(ball.vx) + 120 * m.scale
-          ball.vy = Math.max(190 * m.scale, Math.abs(ball.vy) * 0.42)
+          ball.vx = Math.abs(ball.vx) * BOUNCE_DAMPING
+          ball.vy = Math.max(150 * m.scale, Math.abs(ball.vy) * BOUNCE_DAMPING)
           ball.bounces += 1
           addFlash(ball.x, ball.y, '#9ff8ff')
         } else if (ball.x + ball.r > wallRight) {
           ball.x = wallRight - ball.r
-          ball.vx = -Math.abs(ball.vx) - 120 * m.scale
-          ball.vy = Math.max(190 * m.scale, Math.abs(ball.vy) * 0.42)
+          ball.vx = -Math.abs(ball.vx) * BOUNCE_DAMPING
+          ball.vy = Math.max(150 * m.scale, Math.abs(ball.vy) * BOUNCE_DAMPING)
           ball.bounces += 1
           addFlash(ball.x, ball.y, '#9ff8ff')
         }
 
         if (ball.y - ball.r < wallTop) {
           ball.y = wallTop + ball.r
-          ball.vy = Math.abs(ball.vy) * 0.56 + 160 * m.scale
-          ball.vx += (ball.cannon - 1) * 95 * m.scale
+          ball.vy = Math.abs(ball.vy) * BOUNCE_DAMPING
+          ball.vx = (ball.vx + (ball.cannon - 1) * 95 * m.scale) * BOUNCE_DAMPING
           ball.bounces += 1
           addFlash(ball.x, ball.y, '#9ff8ff')
         }
@@ -573,8 +575,9 @@
             ball.hitTargets.push(target.id)
             ball.bounces += 1
             const dir = ball.x < b.x + b.w / 2 ? -1 : 1
-            ball.vx = dir * (260 + Math.abs(ball.vx) * 0.35)
-            ball.vy = 330 + Math.random() * 120
+            const reboundSpeed = Math.max(360 * m.scale, Math.hypot(ball.vx, ball.vy) * BOUNCE_DAMPING)
+            ball.vx = dir * reboundSpeed * 0.62
+            ball.vy = reboundSpeed * 0.78
             return true
           }
         }
@@ -1032,7 +1035,7 @@
         const gate = target.liftGate >= 0 ? scoreGate(target.liftGate) : null
         const lift = gate ? Math.max(0, gateProgress(target, gate)) : 0
         const fall = target.liftFailed ? 1 : 1 - lift
-        const hitFall = Math.min(1, (performance.now() - target.hitAt) / 160)
+        const hitFall = Math.min(1, (performance.now() - target.hitAt) / 90)
         const t = gate ? fall : hitFall
         const flatten = 1 - t * 0.72
         const lean = -0.78 * t
